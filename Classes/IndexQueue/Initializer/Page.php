@@ -122,7 +122,8 @@ class Page extends AbstractInitializer
                 continue;
             }
 
-            $mountedPages = $this->resolveMountPageTree($mountPage['mountPageSource']);
+
+            $mountedPages = $this->resolveMountPageTree($mountPage);
 
             // handling mount_pid_ol behavior
             if ($mountPage['mountPageOverlayed']) {
@@ -360,13 +361,16 @@ class Page extends AbstractInitializer
     /**
      * Gets all the pages from a mounted page tree.
      *
-     * @param int $mountPageSourceId
+     * @param array $mountPage
      * @return array An array of page IDs in the mounted page tree
      */
-    protected function resolveMountPageTree($mountPageSourceId)
+    protected function resolveMountPageTree($mountPage)
     {
+        $mountPageSourceId = $mountPage['mountPageSource'];
+        $mountPageIdentifier = $mountPage['mountPageSource'] . '-' . $mountPage['mountPageDestination'];
         $siteRepository = GeneralUtility::makeInstance(SiteRepository::class);
-        $mountedSite = $siteRepository->getSiteByPageId($mountPageSourceId);
+        /* @var $siteRepository SiteRepository */
+        $mountedSite = $siteRepository->getSiteByPageId($mountPageSourceId, $mountPageIdentifier);
 
         return $mountedSite->getPages($mountPageSourceId);
     }

@@ -126,6 +126,68 @@ class PageTest extends IntegrationTest
     }
 
     /**
+     * In this testcase we check if the pages queue will be initialized as expected
+     * when we have a page with mounted page from other site tree, which is not marked as siteroot.
+     *
+     *     [0]
+     *      |
+     *      ——[20] Shared-Pages (Not root)
+     *      |   |
+     *      |   ——[24] FirstShared_NotRoot
+     *      |
+     *      ——[ 1] Page (Root)
+     *          |
+     *          ——[14] Mounted Page (to [24] to show contents from)
+     *
+     * @test
+     */
+    public function initializerIsFillingQueueWithMountedNonRootPages()
+    {
+        $this->importDataSetFromFixture('mouted_shared_non_root_page_from_different_tree_can_be_indexed.xml');
+        $this->assertEmptyQueue();
+
+        $this->initializePageIndexQueue();
+
+        $this->assertItemsInQueue(2);
+        $this->assertTrue($this->indexQueue->containsItem('pages', 1));
+        $this->assertTrue($this->indexQueue->containsItem('pages', 24));
+
+        // Prüfe ob die richtigen Seiten in der Queue aufgelistet sind.
+        // evtl. muss solr/Classes/Domain/Index/Queue/RecordMonitor/Helper/RootPageResolver.php angepasst werden.
+        //
+
+    }
+
+    /**
+     * In this testcase we check if the pages queue will be initialized as expected
+     * when we have a page with mounted page from other site tree, which is not marked as siteroot.
+     *
+     *     [0]
+     *      |
+     *      ——[20] Shared-Pages (Folder: Not root)
+     *      |   |
+     *      |   ——[24] FirstShared_Root
+     *      |
+     *      ——[ 1] Page (Root)
+     *          |
+     *          ——[14] Mounted Page (to [24] to show contents from)
+     *
+     * @test
+     */
+    public function initializerIsFillingQueueWithMountedRootPages()
+    {
+        $this->importDataSetFromFixture('mouted_shared_root_page_from_different_tree_can_be_indexed.xml');
+        $this->assertEmptyQueue();
+
+        $this->initializePageIndexQueue();
+
+        // Prüfe ob die richtigen Seiten in der Queue aufgelistet sind.
+        // evtl. muss solr/Classes/Domain/Index/Queue/RecordMonitor/Helper/RootPageResolver.php angepasst werden.
+        //
+
+    }
+
+    /**
      * Check if invalid mount page is ignored and messages were added to the flash
      * message queue
      *

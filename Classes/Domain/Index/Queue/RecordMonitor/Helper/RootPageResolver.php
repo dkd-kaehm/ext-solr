@@ -136,9 +136,10 @@ class RootPageResolver implements SingletonInterface
      *
      * @param int $pageId A page ID somewhere in a tree.
      * @param bool $forceFallback Force the explicit detection and do not use the current frontend root line
+     * @param string $mountPointIdentifier
      * @return int The page's tree branch's root page ID
      */
-    public function getRootPageId($pageId = 0, $forceFallback = false)
+    public function getRootPageId($pageId = 0, $forceFallback = false, $mountPointIdentifier = '')
     {
         /** @var Rootline $rootLine */
         $rootLine = GeneralUtility::makeInstance(Rootline::class);
@@ -151,8 +152,11 @@ class RootPageResolver implements SingletonInterface
 
         // fallback, backend
         if ($pageId != 0 && ($forceFallback || !$rootLine->getHasRootPage())) {
+            /* @var $pageSelect PageRepository */
             $pageSelect = GeneralUtility::makeInstance(PageRepository::class);
-            $rootLineArray = $pageSelect->getRootLine($pageId, '', true);
+            //                                                      v -- ? ist es vielleicht das?
+            $rootLineArray = $pageSelect->getRootLine($pageId, $mountPointIdentifier, true);
+            \TYPO3\CMS\Extbase\Utility\DebuggerUtility::var_dump($rootLineArray, '$rootLineArray');
             $rootLine->setRootLineArray($rootLineArray);
         }
 
