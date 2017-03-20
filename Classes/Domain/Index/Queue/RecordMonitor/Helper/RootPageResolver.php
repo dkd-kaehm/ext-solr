@@ -154,9 +154,8 @@ class RootPageResolver implements SingletonInterface
         if ($pageId != 0 && ($forceFallback || !$rootLine->getHasRootPage())) {
             /* @var $pageSelect PageRepository */
             $pageSelect = GeneralUtility::makeInstance(PageRepository::class);
-            //                                                      v -- ? ist es vielleicht das?
+
             $rootLineArray = $pageSelect->getRootLine($pageId, $mountPointIdentifier, true);
-            \TYPO3\CMS\Extbase\Utility\DebuggerUtility::var_dump($rootLineArray, '$rootLineArray');
             $rootLine->setRootLineArray($rootLineArray);
         }
 

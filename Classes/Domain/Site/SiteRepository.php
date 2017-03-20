@@ -75,6 +75,7 @@ class SiteRepository
      * Gets the Site for a specific page Id.
      *
      * @param int $pageId The page Id to get a Site object for.
+     * @param string $mountPointIdentifier
      * @return Site Site for the given page Id.
      */
     public function getSiteByPageId($pageId, $mountPointIdentifier = '')

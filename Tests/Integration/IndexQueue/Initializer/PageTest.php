@@ -27,6 +27,7 @@ namespace ApacheSolrForTypo3\Solr\Tests\Integration\IndexQueue\Initializer;
 use ApacheSolrForTypo3\Solr\Domain\Site\SiteRepository;
 use ApacheSolrForTypo3\Solr\IndexQueue\Initializer\Page;
 use ApacheSolrForTypo3\Solr\IndexQueue\Queue;
+use ApacheSolrForTypo3\Solr\Site;
 use ApacheSolrForTypo3\Solr\Tests\Integration\IntegrationTest;
 use TYPO3\CMS\Core\Messaging\FlashMessageService;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -145,17 +146,18 @@ class PageTest extends IntegrationTest
     {
         $this->importDataSetFromFixture('mouted_shared_non_root_page_from_different_tree_can_be_indexed.xml');
         $this->assertEmptyQueue();
-
         $this->initializePageIndexQueue();
+        $this->assertItemsInQueue(3);
 
-        $this->assertItemsInQueue(2);
         $this->assertTrue($this->indexQueue->containsItem('pages', 1));
+        // we should check if the mountpoint itself should be in the queue
+        $this->assertTrue($this->indexQueue->containsItem('pages', 14));
         $this->assertTrue($this->indexQueue->containsItem('pages', 24));
 
-        // Prüfe ob die richtigen Seiten in der Queue aufgelistet sind.
-        // evtl. muss solr/Classes/Domain/Index/Queue/RecordMonitor/Helper/RootPageResolver.php angepasst werden.
-        //
+        $items = $this->indexQueue->getItems('pages', 24);
+        $firstItem = $items[0];
 
+        $this->assertSame('14-24-1', $firstItem->getMountPointIdentifier());
     }
 
     /**
@@ -178,13 +180,18 @@ class PageTest extends IntegrationTest
     {
         $this->importDataSetFromFixture('mouted_shared_root_page_from_different_tree_can_be_indexed.xml');
         $this->assertEmptyQueue();
-
         $this->initializePageIndexQueue();
+        $this->assertItemsInQueue(3);
 
-        // Prüfe ob die richtigen Seiten in der Queue aufgelistet sind.
-        // evtl. muss solr/Classes/Domain/Index/Queue/RecordMonitor/Helper/RootPageResolver.php angepasst werden.
-        //
+        $this->assertTrue($this->indexQueue->containsItem('pages', 1));
+        // we should check if the mountpoint itself should be in the queue
+        $this->assertTrue($this->indexQueue->containsItem('pages', 14));
+        $this->assertTrue($this->indexQueue->containsItem('pages', 24));
 
+        $items = $this->indexQueue->getItems('pages', 24);
+        $firstItem = $items[0];
+
+        $this->assertSame('14-24-1', $firstItem->getMountPointIdentifier());
     }
 
     /**
