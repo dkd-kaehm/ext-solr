@@ -236,7 +236,7 @@ class Page extends AbstractInitializer
      */
     protected function addMountedPagesToIndexQueue(array $mountedPages, array $mountProperties)
     {
-        $mountPointPageIsWithExistingQueueEntry = $this->getPageIdsOfExistingMountPages($mountedPages);
+        $mountPointPageIsWithExistingQueueEntry = $this->getPageIdsOfExistingMountPages($mountProperties);
         $mountedPagesThatNeedToBeAdded = array_diff($mountedPages, $mountPointPageIsWithExistingQueueEntry);
 
         if (count($mountedPagesThatNeedToBeAdded) === 0) {
@@ -261,15 +261,16 @@ class Page extends AbstractInitializer
     /**
      * Retrieves an array of pageIds from mountPoints that allready have a queue entry.
      *
-     * @param array $mountedPages
+     * @param array $mountProperties
      * @return array
      */
-    protected function getPageIdsOfExistingMountPages($mountedPages)
+    protected function getPageIdsOfExistingMountPages($mountProperties)
     {
+        $identifier = $this->getMountPointIdentifier($mountProperties);
         $queueItemsOfExistingMountPoints = $GLOBALS['TYPO3_DB']->exec_SELECTgetRows(
             'COUNT(*) AS queueItemCount,item_uid',
             'tx_solr_indexqueue_item',
-            'item_type="pages" AND item_uid IN (' . implode(',', $mountedPages) . ')',
+            'item_type="pages" AND pages_mountidentifier = '. $identifier,
             'item_uid',
             '',
             '',

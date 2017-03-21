@@ -1,25 +1,28 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <dataset>
 <!--
-  There is following scenario:
+There is following scenario:
 
-    [0]
-     |
-     ——[20] Shared-Pages (Folder Not root)
-     |   |
-     |   ——[24] FirstShared (marked as root)
-     |
-     ——[ 1] Page (Root)
-         |
-         ——[14] Mounted Page (to [24] to show contents from)
+ [0]
+  |
+  ——[20] Shared-Pages (Folder: Not root)
+  |   |
+  |   ——[24] FirstShared
+  |
+  ——[ 1] Page (Root)
+  |   |
+  |   ——[14] Mounted Page (to [24] to show contents from)
+  |
+  ——[ 2] Page2 (Root)
+      |
+      ——[34] Mounted Page (to [24] to show contents from)
+
 -->
-
-
     <sys_registry>
         <uid>4711</uid>
         <entry_namespace>tx_solr</entry_namespace>
         <entry_key>servers</entry_key>
-        <entry_value>a:1:{s:3:"1|0";a:9:{s:13:"connectionKey";s:3:"1|0";s:13:"rootPageTitle";s:15:"Congratulations";s:11:"rootPageUid";s:1:"1";s:10:"solrScheme";s:4:"http";s:8:"solrHost";s:9:"localhost";s:8:"solrPort";s:4:"8999";s:8:"solrPath";s:14:"/solr/core_en/";s:8:"language";i:0;s:5:"label";s:74:"Congratulations (pid: 1, language: default) - localhost:8999/solr/core_en/";}}</entry_value>
+        <entry_value>a:2:{s:3:"1|0";a:9:{s:13:"connectionKey";s:3:"1|0";s:13:"rootPageTitle";s:0:"";s:11:"rootPageUid";i:1;s:10:"solrScheme";s:4:"http";s:8:"solrHost";s:9:"localhost";s:8:"solrPort";i:8999;s:8:"solrPath";s:14:"/solr/core_en/";s:8:"language";i:0;s:5:"label";s:16:"testconnection a";}s:3:"2|0";a:9:{s:13:"connectionKey";s:3:"2|0";s:13:"rootPageTitle";s:0:"";s:11:"rootPageUid";i:2;s:10:"solrScheme";s:4:"http";s:8:"solrHost";s:9:"localhost";s:8:"solrPort";i:8998;s:8:"solrPath";s:14:"/solr/core_de/";s:8:"language";i:0;s:5:"label";s:16:"testconnection a";}}</entry_value>
     </sys_registry>
 
     <sys_template>
@@ -101,11 +104,11 @@
     <pages>
         <uid>24</uid>
         <pid>20</pid>
-        <is_siteroot>1</is_siteroot>
+        <is_siteroot>0</is_siteroot>
         <doktype>1</doktype>
         <mount_pid>0</mount_pid>
         <mount_pid_ol>0</mount_pid_ol>
-        <title>FirstShared (marked as root)</title>
+        <title>FirstShared (Not root)</title>
         <TSconfig></TSconfig>
         <tsconfig_includes/>
     </pages>
@@ -126,6 +129,28 @@
         <mount_pid>24</mount_pid>
         <mount_pid_ol>1</mount_pid_ol>
         <title>Mounted Page</title>
+        <TSconfig/>
+        <urltype>1</urltype>
+        <content_from_pid>0</content_from_pid>
+        <tsconfig_includes/>
+    </pages>
+
+    <!-- Second Site tree -->
+    <pages>
+        <uid>2</uid>
+        <is_siteroot>1</is_siteroot>
+        <doktype>1</doktype>
+        <pid>0</pid>
+        <title>Second Site (Root)</title>
+    </pages>
+    <pages>
+        <uid>34</uid>
+        <pid>2</pid>
+        <is_siteroot>0</is_siteroot>
+        <doktype>7</doktype>
+        <mount_pid>24</mount_pid>
+        <mount_pid_ol>1</mount_pid_ol>
+        <title>Mounted from Second Site</title>
         <TSconfig/>
         <urltype>1</urltype>
         <content_from_pid>0</content_from_pid>
