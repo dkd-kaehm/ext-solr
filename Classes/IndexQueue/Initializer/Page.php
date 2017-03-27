@@ -328,12 +328,12 @@ class Page extends AbstractInitializer
      * Builds an identifier of the given mount point properties.
      *
      * @param array $mountProperties Array with mount point properties (mountPageSource, mountPageDestination, mountPageOverlayed)
-     * @return string String consisting of mountPageDestination-mountPageSource-mountPageOverlayed
+     * @return string String consisting of mountPageSource-mountPageDestination-mountPageOverlayed
      */
     protected function getMountPointIdentifier(array $mountProperties)
     {
-        return $mountProperties['mountPageDestination']
-        . '-' . $mountProperties['mountPageSource']
+        return $mountProperties['mountPageSource']
+        . '-' . $mountProperties['mountPageDestination']
         . '-' . $mountProperties['mountPageOverlayed'];
     }
 
@@ -368,7 +368,8 @@ class Page extends AbstractInitializer
     protected function resolveMountPageTree($mountPage)
     {
         $mountPageSourceId = $mountPage['mountPageSource'];
-        $mountPageIdentifier = $mountPage['mountPageSource'] . '-' . $mountPage['mountPageDestination'];
+        $mountPageIdentifier = $this->getMountPointIdentifier($mountPage);
+
         $siteRepository = GeneralUtility::makeInstance(SiteRepository::class);
         /* @var $siteRepository SiteRepository */
         $mountedSite = $siteRepository->getSiteByPageId($mountPageSourceId, $mountPageIdentifier);

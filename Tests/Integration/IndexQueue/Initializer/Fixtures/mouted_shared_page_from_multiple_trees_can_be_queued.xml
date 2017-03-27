@@ -11,11 +11,11 @@ There is following scenario:
   |
   ——[ 1] Page (Root)
   |   |
-  |   ——[14] Mounted Page (to [24] to show contents from)
+  |   ——[14] Mount Point 1 (to [24] to show contents from)
   |
   ——[ 2] Page2 (Root)
       |
-      ——[34] Mounted Page (to [24] to show contents from)
+      ——[34] Mount Point 2 (to [24] to show contents from)
 
 -->
     <sys_registry>
@@ -128,7 +128,7 @@ There is following scenario:
         <doktype>7</doktype>
         <mount_pid>24</mount_pid>
         <mount_pid_ol>1</mount_pid_ol>
-        <title>Mounted Page</title>
+        <title>Mount Point 1</title>
         <TSconfig/>
         <urltype>1</urltype>
         <content_from_pid>0</content_from_pid>
@@ -150,7 +150,7 @@ There is following scenario:
         <doktype>7</doktype>
         <mount_pid>24</mount_pid>
         <mount_pid_ol>1</mount_pid_ol>
-        <title>Mounted from Second Site</title>
+        <title>Mount Point 2</title>
         <TSconfig/>
         <urltype>1</urltype>
         <content_from_pid>0</content_from_pid>

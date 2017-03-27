@@ -11,7 +11,7 @@ There is following scenario:
    |
    ——[ 1] Page (Root)
        |
-       ——[14] Mounted Page (to [24] to show contents from)
+       ——[14] Mount Point (to [24] to show contents from)
 -->
 
 
@@ -125,7 +125,7 @@ There is following scenario:
         <doktype>7</doktype>
         <mount_pid>24</mount_pid>
         <mount_pid_ol>1</mount_pid_ol>
-        <title>Mounted Page</title>
+        <title>Mount Point</title>
         <TSconfig/>
         <urltype>1</urltype>
         <content_from_pid>0</content_from_pid>

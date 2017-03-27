@@ -163,7 +163,7 @@ class PageTest extends IntegrationTest
         $items = $this->indexQueue->getItems('pages', 24);
         $firstItem = $items[0];
 
-        $this->assertSame('14-24-1', $firstItem->getMountPointIdentifier());
+        $this->assertSame('24-14-1', $firstItem->getMountPointIdentifier());
     }
 
     /**
@@ -197,7 +197,7 @@ class PageTest extends IntegrationTest
         $items = $this->indexQueue->getItems('pages', 24);
         $firstItem = $items[0];
 
-        $this->assertSame('14-24-1', $firstItem->getMountPointIdentifier());
+        $this->assertSame('24-14-1', $firstItem->getMountPointIdentifier());
     }
 
     /**
@@ -238,10 +238,10 @@ class PageTest extends IntegrationTest
         $items = $this->indexQueue->getItems('pages', 24);
         $firstItem = $items[0];
 
-        $this->assertSame('14-24-1', $firstItem->getMountPointIdentifier());
+        $this->assertSame('24-14-1', $firstItem->getMountPointIdentifier());
 
         $secondItem = $items[1];
-        $this->assertSame('34-24-1', $secondItem->getMountPointIdentifier());
+        $this->assertSame('24-34-1', $secondItem->getMountPointIdentifier());
     }
 
 
