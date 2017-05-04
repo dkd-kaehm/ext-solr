@@ -48,7 +48,7 @@ class CoreSelectorMenuViewHelper extends AbstractSolrTagBasedViewHelper
     protected $tagName = 'select';
 
     /**
-     * @var \ApacheSolrForTypo3\Solr\Service\ModuleDataStorageService
+     * @var \ApacheSolrForTypo3\Solr\Mvc\Backend\Service\ModuleDataStorageService
      * @inject
      */
     protected $moduleDataStorageService;

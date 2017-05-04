@@ -1,10 +1,10 @@
 <?php
-namespace ApacheSolrForTypo3\Solr\Domain\Model;
+namespace ApacheSolrForTypo3\Solr\Mvc\Backend;
 
 /***************************************************************
  *  Copyright notice
  *
- *  (c) 2013-2015 Ingo Renner <ingo@typo3.org>
+ *  (c) 2010-2017 dkd Internet Service GmbH <solr-support@dkd.de>
  *  All rights reserved
  *
  *  This script is part of the TYPO3 project. The TYPO3 project is
@@ -27,12 +27,10 @@ namespace ApacheSolrForTypo3\Solr\Domain\Model;
 use ApacheSolrForTypo3\Solr\Site;
 
 /**
- * Persistent module data.
- *
+ * Represents the state of needed for backend module components e.g. selected option from select menu, enabled or disabled button, etc..
  */
 class ModuleData
 {
-
     /**
      * @var Site
      */

@@ -1,5 +1,5 @@
 <?php
-namespace ApacheSolrForTypo3\Solr\Service;
+namespace ApacheSolrForTypo3\Solr\Mvc\Backend\Service;
 
 /***************************************************************
  *  Copyright notice
@@ -24,13 +24,13 @@ namespace ApacheSolrForTypo3\Solr\Service;
  *  This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
 
-use ApacheSolrForTypo3\Solr\Domain\Model\ModuleData;
+use ApacheSolrForTypo3\Solr\Mvc\Backend\ModuleData;
 use TYPO3\CMS\Core\SingletonInterface;
+use TYPO3\CMS\Extbase\Utility\DebuggerUtility;
 
 /**
  * Module data storage service. Used to store and retrieve module state (eg.
  * checkboxes, selections).
- *
  */
 class ModuleDataStorageService implements SingletonInterface
 {
@@ -49,17 +49,13 @@ class ModuleDataStorageService implements SingletonInterface
     /**
      * Loads module data for user settings or returns a fresh object initially
      *
-     * @return \ApacheSolrForTypo3\Solr\Domain\Model\ModuleData
+     * @return ModuleData
      */
     public function loadModuleData()
     {
         $moduleData = $GLOBALS['BE_USER']->getModuleData(self::KEY);
 
-        if (false !== strpos($moduleData, 'Tx_Solr_Site')) {
-            // compat: may not be able to unserialize the now gone class
-            $moduleData = '';
-        }
-
+        $this->unsetModuleDataIfCanNotBeSerialized($moduleData);
         if (empty($moduleData) || !$moduleData) {
             $moduleData = $this->objectManager->get(ModuleData::class);
         } else {
@@ -72,11 +68,28 @@ class ModuleDataStorageService implements SingletonInterface
     /**
      * Persists serialized module data to user settings
      *
-     * @param \ApacheSolrForTypo3\Solr\Domain\Model\ModuleData $moduleData
+     * @param ModuleData $moduleData
      * @return void
      */
     public function persistModuleData(ModuleData $moduleData)
     {
         $GLOBALS['BE_USER']->pushModuleData(self::KEY, serialize($moduleData));
+    }
+
+    /**
+     * Unsets not serializable module data.
+     *
+     * @param string|null $serializedModuleData
+     */
+    private function unsetModuleDataIfCanNotBeSerialized(string &$serializedModuleData = null)
+    {
+        if (!isset($serializedModuleData)) {
+            $serializedModuleData = '';
+            return;
+        }
+        if (false !== strpos($serializedModuleData, 'ApacheSolrForTypo3\\Solr\\Domain\\Model\\ModuleData')
+            || false !== strpos($serializedModuleData, 'Tx_Solr_Site')) {
+            $serializedModuleData = '';
+        }
     }
 }

@@ -25,6 +25,7 @@ namespace ApacheSolrForTypo3\Solr\Controller;
  ***************************************************************/
 
 use ApacheSolrForTypo3\Solr\Domain\Site\SiteRepository;
+use ApacheSolrForTypo3\Solr\Mvc\Backend\ModuleData;
 use ApacheSolrForTypo3\Solr\Site;
 use ApacheSolrForTypo3\Solr\Util;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -47,12 +48,12 @@ class AdministrationController extends ActionController
     /**
      * Persistent module data
      *
-     * @var \ApacheSolrForTypo3\Solr\Domain\Model\ModuleData
+     * @var ModuleData
      */
     protected $moduleData = null;
 
     /**
-     * @var \ApacheSolrForTypo3\Solr\Service\ModuleDataStorageService
+     * @var \ApacheSolrForTypo3\Solr\Mvc\Backend\Service\ModuleDataStorageService
      * @inject
      */
     protected $moduleDataStorageService;

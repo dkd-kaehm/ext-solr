@@ -41,7 +41,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 class SitesViewHelper extends AbstractSolrBackendViewHelper
 {
     /**
-     * @var \ApacheSolrForTypo3\Solr\Service\ModuleDataStorageService
+     * @var \ApacheSolrForTypo3\Solr\Mvc\Backend\Service\ModuleDataStorageService
      * @inject
      */
     protected $moduleDataStorageService;
