@@ -5,10 +5,57 @@
 			<generator>LFEditor</generator>
 		</header>
 		<body>
+
+		<!-- Backend module -->
+			<trans-unit id="module_main_label" xml:space="preserve">
+				<source>Apache Solr</source>
+			</trans-unit>
+
+			<trans-unit id="module_core_optimization_label" xml:space="preserve">
+				<source>Core Optimization</source>
+			</trans-unit>
+
+			<trans-unit id="module_indexqueue_label" xml:space="preserve">
+				<source>Index Queue</source>
+			</trans-unit>
+
+			<trans-unit id="solr.backend.index_administration.label" xml:space="preserve">
+				<source>Index Administration</source>
+			</trans-unit>
+
+			<trans-unit id="module_searchstatistics_label" xml:space="preserve">
+				<source>Search Statistics</source>
+			</trans-unit>
+
+			<trans-unit id="module_info_label" xml:space="preserve">
+				<source>Info</source>
+			</trans-unit>
+		<!-- End: Backend module -->
+
 			<trans-unit id="cache_initialize_solr_connections" xml:space="preserve">
 				<source>Initialize Solr connections</source>
 			</trans-unit>
-			<!-- From Backend/locallang.xlf //-->
+
+		<!-- Index Administration -->
+			<trans-unit id="solr.backend.index_administration.description" xml:space="preserve">
+				<source>The Index Administration Module is responsible for emptying the cores(deleting documents) on Solr Server and index queues in TYPO3 CMS. </source>
+			</trans-unit>
+
+			<trans-unit id="solr.backend.index_administration.index_emptied_all" xml:space="preserve">
+				<source>Index emptied for Site "%s" (%s).</source>
+			</trans-unit>
+
+			<trans-unit id="solr.backend.index_administration.success.queue_emptied" xml:space="preserve">
+				<source>Index Queue emptied for Site "%s".</source>
+			</trans-unit>
+
+			<trans-unit id="solr.backend.index_administration.error.on_empty_index" xml:space="preserve">
+				<source>An error occurred while trying to delete documents from the index: %s</source>
+			</trans-unit>
+		<!-- End: Index Maintenance -->
+
+
+		<!-- From Backend/locallang.xlf //-->
 			<trans-unit id="module_indexinspector" xml:space="preserve">
 				<source>Search Index Inspector</source>
 			</trans-unit>
@@ -270,9 +317,6 @@
 			</trans-unit>
 			<trans-unit id="solr.backend.index_queue_module.button.clear_index_queue" xml:space="preserve">
 				<source>Clear Index Queue</source>
-			</trans-unit>
-			<trans-unit id="solr.backend.danger_zone" xml:space="preserve">
-				<source>Danger Zone</source>
 			</trans-unit>
 			<trans-unit id="solr.backend.index_queue_module.back" xml:space="preserve">
 				<source>&lt; Go back</source>
