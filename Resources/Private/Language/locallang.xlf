@@ -19,6 +19,30 @@
 				<source>A search form and results list.</source>
 			</trans-unit>
 
+		<!-- Backend Components -->
+			<!-- SiteSelector -->
+			<trans-unit id="siteselector_switched_successfully" xml:space="preserve">
+				<source>Successfully switched to Site "%s".</source>
+			</trans-unit>
+
+			<trans-unit id="siteselector_switched_to_first_available_site" xml:space="preserve">
+				<source>The previously selected Site "%s" does not exist or the indexing for that Site was disabled. Switched to "%s", which was the first available one.</source>
+			</trans-unit>
+
+			<trans-unit id="siteselector_site_does_not_exist_anymore" xml:space="preserve">
+				<source>Couldn't switch to the Site "%s". This site does not exist anymore or the indexing for that Site was disabled. Switched to the first available Site "%s".</source>
+			</trans-unit>
+
+			<!-- CoreSelector -->
+			<trans-unit id="coreselector_switched_to_default_core" xml:space="preserve">
+				<source>The previously selected core "%s" is not available in "%s" site, therefore switched to default core "%s".</source>
+			</trans-unit>
+
+			<trans-unit id="coreselector_switched_successfully" xml:space="preserve">
+				<source>Successfully switched to core "%s".</source>
+			</trans-unit>
+		<!-- End: Backend Components -->
+
 			<!-- From ModuleAdministration/locallang.xlf //-->
 			<trans-unit id="mlang_labels_tablabel" xml:space="preserve">
 				<source>Apache Solr Search Administration</source>
