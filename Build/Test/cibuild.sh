@@ -30,7 +30,8 @@ fi
 
 echo "Run unit tests"
 UNIT_BOOTSTRAP=".Build/vendor/nimut/testing-framework/res/Configuration/UnitTestsBootstrap.php"
-.Build/bin/phpunit --colors -c Build/Test/UnitTests.xml --bootstrap=$UNIT_BOOTSTRAP --coverage-clover=coverage.unit.clover
+.Build/bin/phpunit --colors -c Build/Test/UnitTests.xml --bootstrap=$UNIT_BOOTSTRAP --coverage-clover=coverage.unit.clover && \
+php ocular.phar code-coverage:upload --access-token=$SCRUTINIZER_ACCESS_TOKEN --format=php-clover coverage.unit.clover
 if [ $? -ne "0" ]; then
     echo "Error during running the unit tests please check and fix them"
     exit 1
@@ -70,4 +71,5 @@ fi
 
 echo "Run integration tests"
 INTEGRATION_BOOTSTRAP=".Build/vendor/nimut/testing-framework/res/Configuration/FunctionalTestsBootstrap.php"
-.Build/bin/phpunit --colors -c Build/Test/IntegrationTests.xml --bootstrap=$INTEGRATION_BOOTSTRAP --coverage-clover=coverage.integration.clover
+.Build/bin/phpunit --colors -c Build/Test/IntegrationTests.xml --bootstrap=$INTEGRATION_BOOTSTRAP --coverage-clover=coverage.integration.clover && \
+php ocular.phar code-coverage:upload --access-token=$SCRUTINIZER_ACCESS_TOKEN --format=php-clover coverage.integration.clover
