@@ -555,7 +555,7 @@ class Queue
      *
      * @return QueueStatistic
      */
-    public function getStatisticsBySite(Site $site, $indexingConfigurationName = '')
+    public function getStatisticsBySite(Site $site, string $indexingConfigurationName = ''): QueueStatistic
     {
         return $this->queueStatisticsRepository->findOneByRootPidAndOptionalIndexingConfigurationName($site->getRootPageId(), $indexingConfigurationName);
     }

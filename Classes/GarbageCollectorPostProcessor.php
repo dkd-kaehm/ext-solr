@@ -42,5 +42,5 @@ interface GarbageCollectorPostProcessor
      * @param int $uid The record's uid.
      * @see \ApacheSolrForTypo3\Solr\GarbageCollector->collectGarbage()
      */
-    public function postProcessGarbageCollector($table, $uid);
+    public function postProcessGarbageCollector(string $table, int $uid);
 }
