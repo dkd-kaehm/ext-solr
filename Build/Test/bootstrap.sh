@@ -97,11 +97,6 @@ if [[ $TYPO3_VERSION = *"master"* ]]; then
     TYPO3_MASTER_DEPENDENCIES='nimut/testing-framework:dev-master'
 fi
 
-# Temporary Fix for https://forge.typo3.org/issues/91832 "phpdocumentor/reflection-docblock" BC in 5.2.0
-if [[ $TYPO3_VERSION = *"10.4"* ]]; then
-    FIX_TYPO3_DEPENDENCIES='phpdocumentor/reflection-docblock:5.1.*'
-fi
-
 composer require --dev --update-with-dependencies --prefer-source \
   typo3/cms-core:"$TYPO3_VERSION" \
   typo3/cms-backend:"$TYPO3_VERSION" \
@@ -110,7 +105,7 @@ composer require --dev --update-with-dependencies --prefer-source \
   typo3/cms-extbase:"$TYPO3_VERSION" \
   typo3/cms-reports:"$TYPO3_VERSION" \
   typo3/cms-scheduler:"$TYPO3_VERSION" \
-  typo3/cms-tstemplate:"$TYPO3_VERSION" $FIX_TYPO3_DEPENDENCIES $TYPO3_MASTER_DEPENDENCIES
+  typo3/cms-tstemplate:"$TYPO3_VERSION" $TYPO3_MASTER_DEPENDENCIES
 
 # Restore composer.json
 mkdir -p $TYPO3_PATH_WEB/uploads $TYPO3_PATH_WEB/typo3temp
