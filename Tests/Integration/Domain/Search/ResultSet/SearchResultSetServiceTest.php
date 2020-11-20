@@ -34,6 +34,11 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Object\ObjectManager;
 use ApacheSolrForTypo3\Solr\Domain\Search\ResultSet\SearchResultSet;
 
+/**
+ * Class SearchResultSetServiceTest
+ *
+ * @group frontend
+ */
 class SearchResultSetServiceTest extends IntegrationTest
 {
     public function setUp() {

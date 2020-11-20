@@ -33,7 +33,6 @@ use ApacheSolrForTypo3\Solr\Domain\Search\ResultSet\Facets\OptionBased\Options\O
 use ApacheSolrForTypo3\Solr\Domain\Search\ResultSet\Facets\OptionBased\QueryGroup\QueryGroupFacet;
 use ApacheSolrForTypo3\Solr\Domain\Search\ResultSet\ResultSetReconstitutionProcessor;
 use ApacheSolrForTypo3\Solr\Domain\Search\ResultSet\SearchResultSet;
-use ApacheSolrForTypo3\Solr\Tests\Unit\Helper\FakeObjectManager;
 use ApacheSolrForTypo3\Solr\Util;
 
 /**

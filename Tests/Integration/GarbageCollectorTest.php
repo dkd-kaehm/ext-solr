@@ -72,6 +72,7 @@ class GarbageCollectorTest extends IntegrationTest
     {
         parent::setUp();
         $this->writeDefaultSolrTestSiteConfiguration();
+        $this->fakeBEUser();
         $this->recordMonitor = GeneralUtility::makeInstance(RecordMonitor::class);
         $this->dataHandler = GeneralUtility::makeInstance(DataHandler::class);
         $this->indexQueue = GeneralUtility::makeInstance(Queue::class);
@@ -273,7 +274,7 @@ class GarbageCollectorTest extends IntegrationTest
         $this->assertIndexQueryContainsItemAmount(1);
         $items = $this->indexQueue->getItems('pages', 1);
         $this->assertSame(1, count($items));
-        
+
         // we index this item
         $this->indexPageIds([1]);
         $this->waitToBeVisibleInSolr();
@@ -605,7 +606,7 @@ class GarbageCollectorTest extends IntegrationTest
 
         return $result;
     }
-    
+
 
     /**
      *

@@ -45,6 +45,7 @@ use TYPO3\CMS\Frontend\Page\PageGenerator;
  * Integration testcase to test for the SuggestController
  *
  * @author Timo Hund
+ * @group frontend
  */
 class SuggestControllerTest extends AbstractFrontendControllerTest
 {
@@ -87,7 +88,6 @@ class SuggestControllerTest extends AbstractFrontendControllerTest
 
     /**
      * @test
-     * @group frontend
      */
     public function canDoABasicSuggest()
     {

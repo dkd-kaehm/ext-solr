@@ -37,6 +37,7 @@ use ApacheSolrForTypo3\Solr\Tests\Integration\IntegrationTest;
  * Unit test case for the ObjectReconstitutionProcessor.
  *
  * @author Timo Hund <timo.hund@dkd.de>
+ * @group frontend
  */
 class ResultSetReconstitutionProcessorTest extends IntegrationTest
 {

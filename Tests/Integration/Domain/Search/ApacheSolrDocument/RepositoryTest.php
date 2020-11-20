@@ -40,6 +40,7 @@ class ApacheSolrDocumentRepositoryTest extends IntegrationTest
     {
         parent::setUp();
 
+        $this->fakeBEUser();
         $this->writeDefaultSolrTestSiteConfiguration();
         $_SERVER['HTTP_HOST'] = 'testone.site';
         $_SERVER['REQUEST_URI'] = '/search.html';
