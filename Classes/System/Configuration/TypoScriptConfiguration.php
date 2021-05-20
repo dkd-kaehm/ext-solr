@@ -1437,6 +1437,19 @@ class TypoScriptConfiguration
     }
 
     /**
+     * Return the configured query sortBy value.
+     *
+     * plugin.tx_solr.search.query.sortBy
+     *
+     * @param string $defaultIfEmpty
+     * @return string
+     */
+     public function getSearchQuerySortBy($defaultIfEmpty = ''){
+
+        return $this->getValueByPathOrDefaultValue('plugin.tx_solr.search.query.sortBy', $defaultIfEmpty);
+    }
+
+    /**
      * Returns the configured target page for the search.
      * By default the contextPageId will be used
      *
