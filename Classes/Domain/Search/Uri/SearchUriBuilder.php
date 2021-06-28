@@ -16,7 +16,6 @@ namespace ApacheSolrForTypo3\Solr\Domain\Search\Uri;
 
 use ApacheSolrForTypo3\Solr\Domain\Search\ResultSet\Grouping\GroupItem;
 use ApacheSolrForTypo3\Solr\Domain\Search\SearchRequest;
-use ApacheSolrForTypo3\Solr\System\Url\UrlHelper;
 use ApacheSolrForTypo3\Solr\Utility\ParameterSortingUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Mvc\Web\Routing\UriBuilder;
@@ -275,7 +274,6 @@ class SearchUriBuilder
             ->getCopyForSubRequest()
             ->getAsArray();
 
-
         $pageUid = $this->getTargetPageUidFromRequestConfiguration($previousSearchRequest);
         return $this->buildLinkWithInMemoryCache($pageUid, $persistentAndFacetArguments);
     }
@@ -315,7 +313,7 @@ class SearchUriBuilder
     }
 
     /**
-     * Build the link with an i memory cache that reduces the amount of required typolink calls.
+     * Build the link with an in memory cache that reduces the amount of required typolink calls.
      *
      * @param integer $pageUid
      * @param array $arguments
@@ -323,35 +321,21 @@ class SearchUriBuilder
      */
     protected function buildLinkWithInMemoryCache($pageUid, array $arguments)
     {
-        $values = [];
-        $structure = $arguments;
-        $this->getSubstitution($structure, $values);
-        $hash = md5($pageUid . json_encode($structure));
+        $hash = md5($pageUid . json_encode($arguments));
         if (isset(self::$preCompiledLinks[$hash])) {
             self::$hitCount++;
-            $uriCacheTemplate = self::$preCompiledLinks[$hash];
+            $uri = self::$preCompiledLinks[$hash];
         } else {
             self::$missCount++;
-            $this->uriBuilder->reset()->setTargetPageUid($pageUid);
-            $uriCacheTemplate = $this->uriBuilder->setArguments($structure)->setUseCacheHash(false)->build();
+            $uri = $this->uriBuilder
+            ->reset()
+            ->setTargetPageUid($pageUid)
+            ->setArguments($arguments)
+            ->build();
 
-            // even if we call build with disabled cHash in TYPO3 9 a cHash will be generated when site management is active
-            // to prevent wrong cHashes we remove the cHash here from the cached uri template.
-            // @todo: This can be removed when https://forge.typo3.org/issues/87120 is resolved and we can ship a proper configuration
-            /* @var UrlHelper $urlHelper */
-            $urlHelper = GeneralUtility::makeInstance(UrlHelper::class, $uriCacheTemplate);
-            $urlHelper->removeQueryParameter('cHash');
-
-            self::$preCompiledLinks[$hash] = (string)$urlHelper;
+            self::$preCompiledLinks[$hash] = (string)$uri;
         }
 
-        $keys = array_map(function($value) {
-            return urlencode($value);
-        }, array_keys($values));
-        $values = array_map(function($value) {
-            return urlencode($value);
-        }, $values);
-        $uri = str_replace($keys, $values, $uriCacheTemplate);
         return $uri;
     }
 
@@ -363,51 +347,6 @@ class SearchUriBuilder
     public function flushInMemoryCache()
     {
         self::$preCompiledLinks = [];
-    }
-
-    /**
-     * This method is used to build two arrays from a nested array. The first one represents the structure.
-     * In this structure the values are replaced with the pass to the value. At the same time the values get collected
-     * in the $values array, with the path as key. This can be used to build a comparable hash from the arguments
-     * in order to reduce the amount of typolink calls
-     *
-     *
-     * Example input
-     *
-     * $data = [
-     *  'foo' => [
-     *      'bar' => 111
-     *   ]
-     * ]
-     *
-     * will return:
-     *
-     * $structure = [
-     *  'foo' => [
-     *      'bar' => '###foo:bar###'
-     *   ]
-     * ]
-     *
-     * $values = [
-     *  '###foo:bar###' => 111
-     * ]
-     *
-     * @param array $structure
-     * @param array $values
-     * @param array $branch
-     */
-    protected function getSubstitution(array &$structure, array  &$values, array $branch = [])
-    {
-        foreach ($structure as $key => &$value) {
-            $branch[] = $key;
-            if (is_array($value)) {
-                $this->getSubstitution($value, $values, $branch);
-            } else {
-                $path = '###' . implode(':', $branch) . '###';
-                $values[$path] = $value;
-                $structure[$key] = $path;
-            }
-        }
     }
 
     /**
