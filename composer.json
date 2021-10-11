@@ -13,23 +13,23 @@
     }
   ],
   "support": {
-    "email": "typo3-project-solr@lists.typo3.org",
+    "email": "solr-eb-support@dkd.de",
     "issues": "https://github.com/TYPO3-Solr/ext-solr/issues",
-    "forum": "http://forum.typo3.org/index.php/f/53/",
-    "wiki": "https://forge.typo3.org/projects/extension-solr/wiki",
+    "forum": "https://talk.typo3.org",
+    "slack": "https://typo3.slack.com/app_redirect?channel=C02FF05Q4",
     "source": "https://github.com/TYPO3-Solr/ext-solr"
   },
   "require": {
     "php": ">=7.2.0",
     "ext-json": "*",
     "typo3/cms-core": "^10.4.10",
-    "typo3/cms-backend": "^10.4.10",
-    "typo3/cms-extbase": "^10.4.10",
-    "typo3/cms-frontend": "^10.4.10",
-    "typo3/cms-fluid": "^10.4.10",
-    "typo3/cms-reports": "^10.4.10",
-    "typo3/cms-scheduler": "^10.4.10",
-    "typo3/cms-tstemplate": "^10.4.10",
+    "typo3/cms-backend": "*",
+    "typo3/cms-extbase": "*",
+    "typo3/cms-frontend": "*",
+    "typo3/cms-fluid": "*",
+    "typo3/cms-reports": "*",
+    "typo3/cms-scheduler": "*",
+    "typo3/cms-tstemplate": "*",
     "solarium/solarium": ">=6.0 <7.0"
   },
   "require-dev": {
