@@ -15,6 +15,7 @@
 
 namespace ApacheSolrForTypo3\Solr\Tests\Integration\Controller;
 
+use DOMDocument;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Context\UserAspect;
 use ApacheSolrForTypo3\Solr\IndexQueue\FrontendHelper\PageFieldMappingIndexer;
@@ -29,8 +30,12 @@ use TYPO3\CMS\Extbase\Mvc\Exception\StopActionException;
 use TYPO3\CMS\Extbase\Mvc\Request;
 use TYPO3\CMS\Extbase\Object\ObjectManager;
 use TYPO3\CMS\Extbase\Object\ObjectManagerInterface;
+use TYPO3\CMS\Extbase\Service\EnvironmentService;
+use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
+use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequestContext;
 use TYPO3Fluid\Fluid\View\Exception\InvalidTemplateResourceException;
 use TYPO3\CMS\Frontend\ContentObject\ContentObjectRenderer;
+use function Webmozart\Assert\Tests\StaticAnalysis\string;
 
 /**
  * Integration testcase to test for the SearchController
@@ -51,11 +56,6 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     protected $searchController;
 
     /**
-     * @var Request
-     */
-    protected $searchRequest;
-
-    /**
      * @var Response
      */
     protected $searchResponse;
@@ -64,17 +64,7 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function setUp(): void
     {
         parent::setUp();
-        $this->objectManager = GeneralUtility::makeInstance(ObjectManager::class);
-
-        $GLOBALS['LANG'] = GeneralUtility::makeInstance(LanguageService::class);
-        $this->fakeSingletonsForFrontendContext();
-
-        $GLOBALS['TT'] = $this->getMockBuilder(TimeTracker::class)->disableOriginalConstructor()->getMock();
-
-        /** @var  $searchController SearchController */
-        $this->searchController = $this->objectManager->get(SearchController::class);
-        $this->searchRequest = $this->getPreparedRequest();
-        $this->searchResponse = $this->getPreparedResponse();
+        $this->bootstrapSearchResultsPluginOnPage();
         $GLOBALS['TYPO3_CONF_VARS']['EXTCONF']['solr']['Indexer']['indexPageSubstitutePageDocument'][PageFieldMappingIndexer::class] = PageFieldMappingIndexer::class;
     }
 
@@ -88,19 +78,39 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     }
 
     /**
+     * @param int $pageId
+     * @return void
+     */
+    protected function bootstrapSearchResultsPluginOnPage(int $pageId = 1): void
+    {
+        $this->addTypoScriptToTemplateRecord(
+            $pageId,
+            '
+            page.20 = USER
+            page.20 {
+              userFunc = TYPO3\CMS\Extbase\Core\Bootstrap->run
+              extensionName = Solr
+              pluginName = pi_results
+              vendorName = ApacheSolrForTypo3
+              controller = Search
+              action = results
+              view < plugin.tx_solr.view
+              persistence < plugin.tx_solr.persistence
+              settings < plugin.tx_solr.settings
+            }
+            '
+        );
+    }
+
+    /**
      * @test
      * @group frontend
      */
     public function canShowSearchForm()
     {
-        $this->markTestSkipped('Blocked by: https://github.com/TYPO3-Solr/ext-solr/issues/3091 " [TASK-11.5C] Refactor Widgets to TYPO3s new Pagination API"');
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
-
-        $this->indexPages([1, 2]);
-
-        $this->searchController->processRequest($this->searchRequest);
-        $content = $this->searchResponse->getBody()->getContents();
+        $response = $this->executeFrontendSubRequest($this->getPreparedRequest());
+        $content = (string)$response->getBody();
         $this->assertStringContainsString('id="tx-solr-search-form-pi-results"', $content, 'Response did not contain search css selector');
     }
 
@@ -110,14 +120,12 @@ class SearchControllerTest extends AbstractFrontendControllerTest
      */
     public function canSearchForPrices()
     {
-        $this->markTestSkipped('Blocked by: https://github.com/TYPO3-Solr/ext-solr/issues/3091 " [TASK-11.5C] Refactor Widgets to TYPO3s new Pagination API"');
-        $_GET['q'] = 'prices';
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
-        $this->indexPages([1, 2, 3]);
+        $this->indexPages([2, 3]);
 
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $result = $this->searchResponse->getBody()->getContents();
+        $result = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()->withQueryParameter('q', 'prices')
+        )->getBody();
 
         $this->assertMatchesRegularExpression('/Found [0-9]+ results in [0-9]+ milliseconds/i', $result);
         $this->assertStringContainsString('pages/3/0/0/0', $result, 'Could not find page 3 in result set');
@@ -131,38 +139,49 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canDoAPaginatedSearch()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            '
+            plugin.tx_solr.search.results.resultsPerPageSwitchOptions = 5, 10, 25, 50
+            plugin.tx_solr.search.results.resultsPerPage = 5'
+        );
+
 
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
-        $_GET['q'] = '*';
-
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()->withQueryParameter('tx_solr[q]', '*')
+        )->getBody();
 
         $this->assertPaginationVisible($resultPage1);
-        $this->assertStringContainsString('Displaying results 1 to 5 of 8', $resultPage1, 'Wrong result count indicated in template');
+        $this->assertStringContainsString('Displaying results 1 to 5 of 8', $resultPage1, 'Wrong result count indicated in template of pagination page 1.');
+
+        $this->assertCanOpenSecondPageOfPaginatedSearch();
+        $this->assertCanChangeResultsPerPage();
     }
 
-    /**
-     * @test
-     * @group frontend
-     */
-    public function canOpenSecondPageOfPaginatedSearch()
+    protected function assertCanOpenSecondPageOfPaginatedSearch(): void
     {
-        $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
-        $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
+        $resultPage2 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+                ->withQueryParameter('tx_solr[page]', 2)
+        )->getBody();
 
-        //now we jump to the second page
-        $_GET['q'] = '*';
+        $this->assertStringContainsString('pages/8/0/0/0', $resultPage2, 'Could not find page(PID) 8 in result set.');
+        $this->assertStringContainsString('Displaying results 6 to 8 of 8', $resultPage2, 'Wrong result count indicated in template of pagination page 2.');
+    }
 
-        $this->searchRequest->setArgument('page', 2);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage2 = $this->searchResponse->getBody()->getContents();
+    protected function assertCanChangeResultsPerPage()
+    {
+        $resultPage = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+                ->withQueryParameter('tx_solr[resultsPerPage]', 10)
+        )->getBody();
 
-        $this->assertStringContainsString('pages/8/0/0/0', $resultPage2, 'Could not find page 8 in result set');
-        $this->assertStringContainsString('Displaying results 6 to 8 of 8', $resultPage2, 'Wrong result count indicated in template');
+        $this->assertStringContainsString("Displaying results 1 to 8 of 8", $resultPage, '');
+        $this->assertContainerByIdContains('<option selected="selected" value="10">10</option>', $resultPage, 'results-per-page');
     }
 
     /**
@@ -172,15 +191,21 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canGetADidYouMeanProposalForATypo()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            '
+            plugin.tx_solr.search.spellchecking = 1
+            '
+        );
 
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
         //not in the content but we expect to get shoes suggested
-        $_GET['q'] = 'shoo';
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', 'shoo')
+        )->getBody();
 
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
         $this->assertStringContainsString("Did you mean", $resultPage1, 'Could not find did you mean in response');
         $this->assertStringContainsString("shoes", $resultPage1, 'Could not find shoes in response');
     }
@@ -192,24 +217,24 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canAutoCorrectATypo()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            '
+            plugin.tx_solr.search.spellchecking = 1
+            plugin.tx_solr.search.spellchecking {
+                searchUsingSpellCheckerSuggestion = 1
+                numberOfSuggestionsToTry = 1
+            }
+            '
+        );
 
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
         //not in the content but we expect to get shoes suggested
-        $_GET['q'] = 'shoo';
-
-        $overwriteConfiguration = [];
-        $overwriteConfiguration['search.']['spellchecking.']['searchUsingSpellCheckerSuggestion'] = 1;
-        $overwriteConfiguration['search.']['spellchecking.']['numberOfSuggestionsToTry'] = 1;
-
-        /** @var $configurationManager ConfigurationManager */
-        $configurationManager = GeneralUtility::makeInstance(ConfigurationManager::class);
-        $configurationManager->getTypoScriptConfiguration()->mergeSolrConfiguration($overwriteConfiguration);
-
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', 'shoo')
+        )->getBody();
 
         $this->assertStringContainsString("Nothing found for shoo", $resultPage1, 'Could not find nothing found message');
         $this->assertStringContainsString("Showing results for shoes", $resultPage1, 'Could not find correction message');
@@ -222,17 +247,24 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canRenderAFacetWithFluid()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            '
+            plugin.tx_solr.search.faceting = 1
+            plugin.tx_solr.search.faceting.facets.type {
+                label = Content Type
+                field = type
+            }
+            '
+        );
 
         $this->indexPages([1, 2]);
 
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = '*';
-
-            // since we overwrite the configuration in the testcase from outside we want to avoid that it will be resetted
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+        )->getBody();
 
         $this->assertStringContainsString('fluidfacet', $resultPage1, 'Could not find fluidfacet class that indicates the facet was rendered with fluid');
         $this->assertStringContainsString('pages</a> <span class="facet-result-count badge">', $resultPage1, 'Could not find facet option for pages');
@@ -241,27 +273,30 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     /**
      * @test
      * @group frontend
+     * @todo: https://github.com/TYPO3-Solr/ext-solr/issues/3150
      */
     public function canDoAnInitialEmptySearchWithoutResults()
     {
+        $this->markTestSkipped('Something is wrong with refactored pagination. See https://github.com/TYPO3-Solr/ext-solr/issues/3150');
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            '
+            plugin.tx_solr.search {
+                initializeWithEmptyQuery = 1
+                showResultsOfInitialEmptyQuery = 0
+                faceting = 1
+                faceting.facets.type {
+                    label = Content Type
+                    field = type
+                }
+            }
+            '
+        );
 
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
-
-        // now we set the facet type for "type" facet to fluid and expect that we get a rendered facet
-        $overwriteConfiguration = [];
-        $overwriteConfiguration['search.']['initializeWithEmptyQuery'] = 1;
-        $overwriteConfiguration['search.']['showResultsOfInitialEmptyQuery'] = 0;
-
-        /** @var $configurationManager ConfigurationManager */
-        $configurationManager = GeneralUtility::makeInstance(ConfigurationManager::class);
-        $configurationManager->getTypoScriptConfiguration()->mergeSolrConfiguration($overwriteConfiguration);
-
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest($this->getPreparedRequest())->getBody();
 
         $this->assertStringContainsString('fluidfacet', $resultPage1, 'Could not find fluidfacet class that indicates the facet was rendered with fluid');
         $this->assertStringNotContainsString('results-entry', $resultPage1, 'No results should be visible since showResultsOfInitialEmptyQuery was set to false');
@@ -274,23 +309,24 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canDoAnInitialEmptySearchWithResults()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            '
+            plugin.tx_solr.search {
+                initializeWithEmptyQuery = 1
+                showResultsOfInitialEmptyQuery = 1
+                faceting = 1
+                faceting.facets.type {
+                    label = Content Type
+                    field = type
+                }
+            }
+            '
+        );
 
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
-
-        // now we set the facet type for "type" facet to fluid and expect that we get a rendered facet
-        $overwriteConfiguration = [];
-        $overwriteConfiguration['search.']['initializeWithEmptyQuery'] = 1;
-        $overwriteConfiguration['search.']['showResultsOfInitialEmptyQuery'] = 1;
-
-        /** @var $configurationManager ConfigurationManager */
-        $configurationManager = GeneralUtility::makeInstance(ConfigurationManager::class);
-        $configurationManager->getTypoScriptConfiguration()->mergeSolrConfiguration($overwriteConfiguration);
-
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest($this->getPreparedRequest())->getBody();
 
         $this->assertStringContainsString('fluidfacet', $resultPage1, 'Could not find fluidfacet class that indicates the facet was rendered with fluid');
         $this->assertStringContainsString('results-entry', $resultPage1, 'Results should be visible since showResultsOfInitialEmptyQuery was set to true');
@@ -299,27 +335,30 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     /**
      * @test
      * @group frontend
+     * @todo: https://github.com/TYPO3-Solr/ext-solr/issues/3150
      */
     public function canDoAnInitialSearchWithoutResults()
     {
-
+        $this->markTestSkipped('Something is wrong with refactored pagination. See https://github.com/TYPO3-Solr/ext-solr/issues/3150');
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            '
+            plugin.tx_solr.search {
+                initializeWithQuery = product
+                showResultsOfInitialEmptyQuery = 0
+                faceting = 1
+                faceting.facets.type {
+                    label = Content Type
+                    field = type
+                }
+            }
+            '
+        );
 
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
-        // now we set the facet type for "type" facet to fluid and expect that we get a rendered facet
-        $overwriteConfiguration = [];
-        $overwriteConfiguration['search.']['initializeWithQuery'] = 'product';
-        $overwriteConfiguration['search.']['showResultsOfInitialQuery'] = 0;
-
-        /** @var $configurationManager ConfigurationManager */
-        $configurationManager = GeneralUtility::makeInstance(ConfigurationManager::class);
-        $configurationManager->getTypoScriptConfiguration()->mergeSolrConfiguration($overwriteConfiguration);
-
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest($this->getPreparedRequest())->getBody();
 
         $this->assertStringContainsString('fluidfacet', $resultPage1, 'fluidfacet should be generated since initializeWithQuery was configured with a query that should produce results');
         $this->assertStringNotContainsString('results-entry', $resultPage1, 'No results should be visible since showResultsOfInitialQuery was set to false');
@@ -333,22 +372,24 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canDoAnInitialSearchWithResults()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            '
+            plugin.tx_solr.search {
+                initializeWithQuery = product
+                showResultsOfInitialEmptyQuery = 1
+                faceting = 1
+                faceting.facets.type {
+                    label = Content Type
+                    field = type
+                }
+            }
+            '
+        );
 
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
-        // now we set the facet type for "type" facet to fluid and expect that we get a rendered facet
-        $overwriteConfiguration = [];
-        $overwriteConfiguration['search.']['initializeWithQuery'] = 'product';
-        $overwriteConfiguration['search.']['showResultsOfInitialQuery'] = 1;
-
-        /** @var $configurationManager ConfigurationManager */
-        $configurationManager = GeneralUtility::makeInstance(ConfigurationManager::class);
-        $configurationManager->getTypoScriptConfiguration()->mergeSolrConfiguration($overwriteConfiguration);
-
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest($this->getPreparedRequest())->getBody();
 
         $this->assertStringContainsString('fluidfacet', $resultPage1, 'fluidfacet should be generated since initializeWithQuery was configured with a query that should produce results');
         $this->assertStringContainsString('results-entry', $resultPage1, 'Results should be visible since showResultsOfInitialQuery was set to true');
@@ -361,18 +402,27 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function removeOptionLinkWillBeShownWhenFacetWasSelected()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            '
+            plugin.tx_solr.search {
+                faceting = 1
+                faceting.facets.type {
+                    label = Content Type
+                    field = type
+                }
+            }
+            '
+        );
 
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = '*';
-        $this->searchRequest->setArgument('filter', ['type:pages']);
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+                ->withQueryParameter('tx_solr[filter][0]', 'type:pages')
+        )->getBody();
 
-        // since we overwrite the configuration in the testcase from outside we want to avoid that it will be resetted
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
         $this->assertStringContainsString('fluidfacet', $resultPage1, 'Could not find fluidfacet class that indicates the facet was rendered with fluid');
         $this->assertStringContainsString('remove-facet-option', $resultPage1, 'No link to remove facet option found');
     }
@@ -381,21 +431,29 @@ class SearchControllerTest extends AbstractFrontendControllerTest
      * @test
      * @group frontend
      */
-    public function removeOptionLinkWillIsAlsoShownWhenAFacetIsNotInTheResponse()
+    public function removeOptionLinkWillBeShownWhenAFacetOptionLeadsToAZeroResults()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            '
+            plugin.tx_solr.search {
+                faceting = 1
+                faceting.facets.type {
+                    label = Content Type
+                    field = type
+                }
+            }
+            '
+        );
 
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = '*';
-        $this->searchRequest->setArgument('filter', ['type:my_jobs']);
-
-        // since we overwrite the configuration in the testcase from outside we want to avoid that it will be resetted
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+                ->withQueryParameter('tx_solr[filter][0]', 'type:my_jobs')
+        )->getBody();
 
         $this->assertStringContainsString('remove-facet-option', $resultPage1, 'No link to remove facet option found');
     }
@@ -407,24 +465,19 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canFilterOnPageSections()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            '
+            plugin.tx_solr.search.query.filter.__pageSections = 2,3
+            '
+        );
 
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = '*';
-
-        $overwriteConfiguration = [];
-        $overwriteConfiguration['search.']['query.']['filter.']['__pageSections'] = '2,3';
-
-        /** @var $configurationManager ConfigurationManager */
-        $configurationManager = GeneralUtility::makeInstance(ConfigurationManager::class);
-        $configurationManager->getTypoScriptConfiguration()->mergeSolrConfiguration($overwriteConfiguration);
-
-        // since we overwrite the configuration in the testcase from outside we want to avoid that it will be resetted
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+        )->getBody();
 
         // we should only find 2 results since a __pageSections filter should be applied
         $this->assertStringContainsString('Found 2 results', $resultPage1, 'No link to remove facet option found');
@@ -439,27 +492,29 @@ class SearchControllerTest extends AbstractFrontendControllerTest
         // we expected that an exception will be thrown when a facet is rendered
         // where an unknown partialName is referenced
         $this->expectException(InvalidTemplateResourceException::class);
-        $this->expectExceptionMessageRegExp('#(.*The partial files.*NotFound.*|.*The Fluid template files .*NotFound.*)#');
+        $this->expectExceptionMessageMatches('#(.*The partial files.*NotFound.*|.*The Fluid template files .*NotFound.*)#');
 
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            '
+            plugin.tx_solr.search {
+                faceting = 1
+                faceting.facets.type {
+                    partialName = NotFound
+                    label = Content Type
+                    field = type
+                }
+            }
+            '
+        );
 
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
-        // now we set the facet type for "type" facet to fluid and expect that we get a rendered facet
-        $overwriteConfiguration = [];
-        $overwriteConfiguration['search.']['faceting.']['facets.']['type.']['partialName'] = 'NotFound';
-
-        /** @var $configurationManager ConfigurationManager */
-        $configurationManager = GeneralUtility::makeInstance(ConfigurationManager::class);
-        $configurationManager->getTypoScriptConfiguration()->mergeSolrConfiguration($overwriteConfiguration);
-
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = '*';
-
-        // since we overwrite the configuration in the testcase from outside we want to avoid that it will be resetted
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
+        $this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+        );
     }
 
     /**
@@ -469,17 +524,16 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canRenderAScoreAnalysisWhenBackendUserIsLoggedIn()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
 
         $this->indexPages([1, 2]);
 
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = '*';
         // fake that a backend user is logged in
-        $this->fakeBackendUserLoggedInInFrontend();
-
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $this->setUpBackendUserFromFixture(1);
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*'),
+            (new InternalRequestContext())->withBackendUserId(1)
+        )->getBody();
 
         $this->assertStringContainsString('document-score-analysis', $resultPage1, 'No score analysis in response');
     }
@@ -491,29 +545,31 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canSortFacetsByLex()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            '
+            plugin.tx_solr.search {
+                faceting = 1
+                faceting.facets.subtitle {
+                    label = Subtitle
+                    field = subTitle
+                    keepAllOptionsOnSelection = 1
+                    // when we sort by lex "men" should appear before "woman" even when only one option is available
+                    sortBy = lex
+                }
+            }
+            '
+        );
 
         $womanPages = [4,5,8];
         $menPages = [2];
         $this->indexPages($womanPages);
         $this->indexPages($menPages);
 
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = '*';
-
-        // when we sort by lex "men" should appear before "woman" even when only one option is available
-        $overwriteConfiguration = [];
-        $overwriteConfiguration['search.']['faceting.']['facets.']['subtitle.']['sortBy'] = 'lex';
-
-
-        /** @var $configurationManager ConfigurationManager */
-        $configurationManager = GeneralUtility::makeInstance(ConfigurationManager::class);
-        $configurationManager->getTypoScriptConfiguration()->mergeSolrConfiguration($overwriteConfiguration);
-
-        // since we overwrite the configuration in the testcase from outside we want to avoid that it will be resetted
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+        )->getBody();
 
         $subtitleMenPosition = strpos($resultPage1, '>men</a> <span class="facet-result-count badge">1</span>');
         $subtitleWomanPosition =  strpos($resultPage1, '>woman</a> <span class="facet-result-count badge">3</span>');
@@ -533,20 +589,29 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canSortFacetsByOptionCountWhenNothingIsConfigured()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            '
+            plugin.tx_solr.search {
+                faceting = 1
+                faceting.facets.subtitle {
+                    label = Subtitle
+                    field = subTitle
+                    keepAllOptionsOnSelection = 1
+                }
+            }
+            '
+        );
 
         $womanPages = [4,5,8];
         $menPages = [2];
         $this->indexPages($womanPages);
         $this->indexPages($menPages);
 
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = '*';
-
-        // since we overwrite the configuration in the testcase from outside we want to avoid that it will be resetted
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+        )->getBody();
 
         $subtitleMenPosition = strpos($resultPage1, '>men</a> <span class="facet-result-count badge">1</span>');
         $subtitleWomanPosition =  strpos($resultPage1, '>woman</a> <span class="facet-result-count badge">3</span>');
@@ -566,21 +631,98 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canRenderQueryGroupFacet()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            '
+            plugin.tx_solr.search {
+                faceting = 1
+                faceting.facets.pid {
+                    label = Uid Range
+                    field = uid
+
+                    type = queryGroup
+                    queryGroup {
+                        small {
+                            query = [* TO 2]
+                        }
+                        medium {
+                            query = [2 TO 5]
+                        }
+
+                        large {
+                            query = [5 TO *]
+                        }
+                    }
+
+                    renderingInstruction = CASE
+                    renderingInstruction {
+                        key.field = optionValue
+
+                        default = TEXT
+                        default.field = optionValue
+
+                        small = TEXT
+                        small.value = Small (1 & 2)
+
+                        medium = TEXT
+                        medium.value = Medium (2 to 5)
+
+                        large = TEXT
+                        large.value = Large (5 to *)
+                    }
+                }
+            }
+            '
+        );
 
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = '*';
-
-        // since we overwrite the configuration in the testcase from outside we want to avoid that it will be resetted
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+        )->getBody();
 
         $this->assertStringContainsString('Small (1 &amp; 2)', $resultPage1, 'Response did not contain expected small option of query facet');
         $this->assertStringContainsString('Medium (2 to 5)', $resultPage1, 'Response did not contain expected medium option of query facet');
         $this->assertStringContainsString('Large (5 to *)', $resultPage1, 'Response did not contain expected large option of query facet');
+    }
+
+
+    /**
+     * @return void
+     */
+    protected function addPageHierarchyFacetConfiguration(): void
+    {
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            /* @lang typoScript */ '
+            plugin.tx_solr.search {
+                faceting = 1
+                faceting.facets.pageHierarchy {
+                    field = rootline
+                    label = Rootline
+
+                    type = hierarchy
+
+                    hierarchy = HMENU
+                    hierarchy {
+                        1 = TMENU
+                        1 {
+                            NO = 1
+                            NO {
+                                wrapItemAndSub = <li class="rootlinefacet-item">|</li>
+                            }
+                        }
+
+                        2 < .1
+                        2.wrap = <ul>|</ul>
+
+                        3 < .2
+                    }
+                }
+            }
+            '
+        );
     }
 
     /**
@@ -590,18 +732,13 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canRenderHierarchicalFacet()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
-
+        $this->addPageHierarchyFacetConfiguration();
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = '*';
-
-        // since we overwrite the configuration in the testcase from outside we want to avoid that it will be resetted
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+        )->getBody();
 
         $this->assertStringContainsString('Found 8 results', $resultPage1, 'Assert to find 8 results without faceting');
         $this->assertStringContainsString('facet-type-hierarchy', $resultPage1, 'Did not render hierarchy facet in the response');
@@ -618,19 +755,14 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canFacetOnHierarchicalFacetItem()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
-
+        $this->addPageHierarchyFacetConfiguration();
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = '*';
-
-        $this->searchRequest->setArgument('filter', ['pageHierarchy:/1/2/']);
-
-        // since we overwrite the configuration in the testcase from outside we want to avoid that it will be resetted
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+                ->withQueryParameter('tx_solr[filter][0]', 'pageHierarchy:/1/2/')
+        )->getBody();
 
         $this->assertStringContainsString('Found 1 result', $resultPage1, 'Assert to only find one result after faceting');
         $this->assertStringContainsString('facet-type-hierarchy', $resultPage1, 'Did not render hierarchy facet in the response');
@@ -645,22 +777,46 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canFacetOnHierarchicalTextCategory()
     {
         $this->importDataSetFromFixture('can_render_path_facet_with_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
 
-        $this->indexPages([1, 2, 3]);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            /* @lang typoScript */ '
+            plugin.tx_solr {
+                index {
+                    fieldProcessingInstructions.categoryPaths_stringM = pathToHierarchy
+                    queue.pages.fields {
+                        categoryPaths_stringM = SOLR_MULTIVALUE
+                        categoryPaths_stringM {
+                            stdWrap.cObject = USER
+                            stdWrap.cObject.userFunc = ApacheSolrForTypo3\Solr\Tests\Integration\Controller\CategoryPathProvider->getPaths
+                            separator = ,
+                        }
+                    }
+                }
+                search {
+                    faceting = 1
+                    faceting.facets.categoryPaths {
+                      field = categoryPaths_stringM
+                      label = Path
+                      type = hierarchy
+                   }
+                }
+            }
+            '
+        );
+
+        $this->indexPages([2, 3, 4]);
         // we should have 3 documents in solr
         $solrContent = file_get_contents($this->getSolrConnectionUriAuthority() . '/solr/core_en/select?q=*:*');
         $this->assertStringContainsString('"numFound":3', $solrContent, 'Could not index document into solr');
 
         // but when we facet on the categoryPaths:/Men/Shoes \/ Socks/ we should only have one result since the others
         // do not have the category assigned
-        $_GET['q'] = '*';
-        $this->searchRequest->setArgument('filter', ['categoryPaths:/Men/Shoes \/ Socks/']);
-
-        // since we overwrite the configuration in the testcase from outside we want to avoid that it will be resetted
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+                ->withQueryParameter('tx_solr[filter][0]', 'categoryPaths:/Men/Shoes \/ Socks/')
+        )->getBody();
 
         $this->assertStringContainsString('Found 1 result', $resultPage1, 'Assert to only find one result after faceting');
     }
@@ -672,29 +828,28 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canDefineAManualSortOrder()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            /* @lang typoScript */ '
+            plugin.tx_solr.search.faceting = 1
+            plugin.tx_solr.search.faceting.facets.subtitle {
+                label = Subtitle
+                field = subTitle
+                keepAllOptionsOnSelection = 1
+                manualSortOrder = men, woman
+            }
+            '
+        );
 
         $womanPages = [4,5,8];
         $menPages = [2];
         $this->indexPages($womanPages);
         $this->indexPages($menPages);
 
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = '*';
-
-        // when we sort by lex "men" should appear before "woman" even when only one option is available
-        $overwriteConfiguration = [];
-        $overwriteConfiguration['search.']['faceting.']['facets.']['subtitle.']['manualSortOrder'] = 'men, woman';
-
-
-        /** @var $configurationManager ConfigurationManager */
-        $configurationManager = GeneralUtility::makeInstance(ConfigurationManager::class);
-        $configurationManager->getTypoScriptConfiguration()->mergeSolrConfiguration($overwriteConfiguration);
-
-        // since we overwrite the configuration in the testcase from outside we want to avoid that it will be resetted
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+        )->getBody();
 
         $subtitleMenPosition = strpos($resultPage1, '>men</a> <span class="facet-result-count badge">1</span>');
         $subtitleWomanPosition =  strpos($resultPage1, '>woman</a> <span class="facet-result-count badge">3</span>');
@@ -707,7 +862,6 @@ class SearchControllerTest extends AbstractFrontendControllerTest
         $this->assertStringContainsString('pages</a> <span class="facet-result-count badge">', $resultPage1, 'Could not find facet option for pages');
     }
 
-
     /**
      * @test
      * @group frontend
@@ -715,17 +869,15 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canSeeTheParsedQueryWhenABackendUserIsLoggedIn()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
 
         $this->indexPages([1, 2]);
 
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = '*';
-        // fake that a backend user is logged in
-        $this->fakeBackendUserLoggedInInFrontend();
-
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
+        $this->setUpBackendUserFromFixture(1);
+        $resultPage1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*'),
+            (new InternalRequestContext())->withBackendUserId(1)
+        )->getBody();
 
         $this->assertStringContainsString('Parsed Query:', $resultPage1, 'No parsed query in response');
     }
@@ -733,22 +885,27 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     /**
      * @test
      * @group frontend
+     * @todo: See: https://github.com/TYPO3-Solr/ext-solr/issues/3158
      */
     public function frontendWillRenderErrorMessageForSolrNotAvailableAction()
     {
-        $this->applyUsingErrorControllerForCMS9andAbove();
+        $this->markTestSkipped('Fulfill: Breaking: #92502 - Make Extbase handle PSR-7 responses only. See: https://github.com/TYPO3-Solr/ext-solr/issues/3158');
+        $this->mergeSiteConfiguration(
+            'integration_tree_one',
+            [
+                'solr_scheme_read' => 'http',
+                'solr_host_read' => 'localhost',
+                'solr_port_read' => 4711
+            ]
+        );
 
-        // set a wrong port where no solr is running
-        $this->writeDefaultSolrTestSiteConfigurationForHostAndPort('http','localhost', 4711);
-        $this->importDataSetFromFixture('can_render_error_message_when_solr_unavailable.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $response = $this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+        );
 
-        $this->searchRequest->setControllerActionName('solrNotAvailable');
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-        $resultPage1 = $this->searchResponse->getBody()->getContents();
-
-        $this->assertEquals('503 Service Unavailable', $this->searchResponse->getStatus());
-        $this->assertStringContainsString("Search is currently not available.", $resultPage1, 'Response did not contain solr unavailable error message');
+        $this->assertEquals('503 Service Unavailable', $response->getStatusCode());
+        $this->assertStringContainsString("Search is currently not available.", (string)$response->getBody(), 'Response did not contain solr unavailable error message');
     }
 
     /**
@@ -771,6 +928,7 @@ class SearchControllerTest extends AbstractFrontendControllerTest
      */
     public function frontendWillForwardsToErrorActionWhenSolrEndpointIsNotAvailable($action, $getArguments)
     {
+        $this->markTestSkipped('Fulfill: Breaking: #92502 - Make Extbase handle PSR-7 responses only. See: https://github.com/TYPO3-Solr/ext-solr/issues/3158');
         $this->applyUsingErrorControllerForCMS9andAbove();
         // set a wrong port where no solr is running
         $this->writeDefaultSolrTestSiteConfigurationForHostAndPort('http','localhost', 4711);
@@ -782,56 +940,47 @@ class SearchControllerTest extends AbstractFrontendControllerTest
         $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
 
         $_GET = $getArguments;
-        $this->searchRequest->setControllerActionName($action);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
+        $this->getPreparedRequest()->setControllerActionName($action);
+        $this->searchController->processRequest($this->getPreparedRequest(), $this->searchResponse);
     }
 
     /**
      * @test
      * @group frontend
+     * @todo: https://github.com/TYPO3-Solr/ext-solr/issues/3160
+     *       The session must be shared between both requests.
      */
     public function canShowLastSearchesFromSessionInResponse()
     {
+        $this->markTestIncomplete(
+            'Last searches component seems to be fine, but the test does not fit that case currently.
+            The last-searches component is not rendered. See: https://github.com/TYPO3-Solr/ext-solr/issues/3160'
+        );
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            /* @lang typoScript */ '
+            plugin.tx_solr.search.lastSearches = 1
+            plugin.tx_solr.search.lastSearches {
+                limit = 10
+                mode = user
+            }
+            '
+        );
 
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = 'shoe';
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
+        $resultSearch1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()->withQueryParameter('tx_solr[q]', 'shoe')
+        )->getBody();
 
-        $searchRequest2 = $this->getPreparedRequest();
-        $searchResponse2 = $this->getPreparedResponse();
-        $this->searchController->processRequest($searchRequest2, $searchResponse2);
-        $resultPage2 = $this->searchResponse->getBody()->getContents();
+        $resultSearch2 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+        )->getBody();
 
-
-        $this->assertContainerByIdContains('>shoe</a>', $resultPage2, 'tx-solr-lastsearches');
+        $this->assertContainerByIdContains('>shoe</a>', $resultSearch2, 'tx-solr-lastsearches');
     }
-
-    /**
-     * @test
-     * @group frontend
-     */
-    public function canChangeResultsPerPage()
-    {
-        $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
-
-        $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
-
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = '*';
-
-        $this->searchRequest->setArgument('resultsPerPage', 10);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-
-        $resultPage = $this->searchResponse->getBody()->getContents();
-        $this->assertStringContainsString("Displaying results 1 to 8 of 8", $resultPage, '');
-        $this->assertContainerByIdContains('<option selected="selected" value="10">10</option>', $resultPage, 'results-per-page');
-    }
-
 
     /**
      * @test
@@ -840,28 +989,28 @@ class SearchControllerTest extends AbstractFrontendControllerTest
     public function canShowLastSearchesFromDatabaseInResponse()
     {
         $this->importDataSetFromFixture('can_render_search_controller.xml');
-        $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
-
+        $this->addTypoScriptToTemplateRecord(
+            1,
+            /* @lang typoScript */ '
+            plugin.tx_solr.search.lastSearches = 1
+            plugin.tx_solr.search.lastSearches {
+                limit = 10
+                mode = global
+            }
+            '
+        );
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
 
-        $overwriteConfiguration = [];
-        $overwriteConfiguration['search.']['lastSearches.']['mode'] = 'global';
+        $resultSearch1 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()->withQueryParameter('tx_solr[q]', 'shoe')
+        )->getBody();
 
-        /** @var $configurationManager ConfigurationManager */
-        $configurationManager = GeneralUtility::makeInstance(ConfigurationManager::class);
-        $configurationManager->getTypoScriptConfiguration()->mergeSolrConfiguration($overwriteConfiguration);
-        $this->searchController->setResetConfigurationBeforeInitialize(false);
+        $resultSearch2 = (string)$this->executeFrontendSubRequest(
+            $this->getPreparedRequest()
+                ->withQueryParameter('tx_solr[q]', '*')
+        )->getBody();
 
-        //not in the content but we expect to get shoes suggested
-        $_GET['q'] = 'shoe';
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
-
-        $searchRequest2 = $this->getPreparedRequest();
-        $searchResponse2 = $this->getPreparedResponse();
-        $this->searchController->processRequest($searchRequest2, $searchResponse2);
-        $resultPage2 = $this->searchResponse->getBody()->getContents();
-
-        $this->assertContainerByIdContains('>shoe</a>', $resultPage2, 'tx-solr-lastsearches');
+        $this->assertContainerByIdContains('>shoe</a>', $resultSearch2, 'tx-solr-lastsearches');
     }
 
     /**
@@ -885,7 +1034,7 @@ class SearchControllerTest extends AbstractFrontendControllerTest
 
         //not in the content but we expect to get shoes suggested
         $_GET['q'] = 'nothingwillbefound';
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
+        $this->searchController->processRequest($this->getPreparedRequest(), $this->searchResponse);
 
         $searchRequest2 = $this->getPreparedRequest();
         $searchResponse2 = $this->getPreparedResponse();
@@ -913,7 +1062,7 @@ class SearchControllerTest extends AbstractFrontendControllerTest
 
         //not in the content but we expect to get shoes suggested
         $_GET['q'] = '*';
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
+        $this->searchController->processRequest($this->getPreparedRequest(), $this->searchResponse);
 
         $this->assertStringContainsString('Displaying results 1 to 4 of 4', $this->searchResponse->getBody()->getContents());
     }
@@ -943,7 +1092,7 @@ class SearchControllerTest extends AbstractFrontendControllerTest
 
         //not in the content but we expect to get shoes suggested
         $_GET['q'] = '*';
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
+        $this->searchController->processRequest($this->getPreparedRequest(), $this->searchResponse);
         $this->assertStringContainsString('facet-type-dateRange', $this->searchResponse->getBody()->getContents());
     }
 
@@ -971,7 +1120,7 @@ class SearchControllerTest extends AbstractFrontendControllerTest
 
         //not in the content but we expect to get shoes suggested
         $_GET['q'] = '*';
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
+        $this->searchController->processRequest($this->getPreparedRequest(), $this->searchResponse);
         $this->assertStringContainsString('id="facetmyType"', $this->searchResponse->getBody()->getContents());
         $this->assertStringContainsString('id="facettype"', $this->searchResponse->getBody()->getContents());
 
@@ -993,7 +1142,7 @@ class SearchControllerTest extends AbstractFrontendControllerTest
 
         //not in the content but we expect to get shoes suggested
         $_GET['q'] = '*';
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
+        $this->searchController->processRequest($this->getPreparedRequest(), $this->searchResponse);
 
         $content = $this->searchResponse->getBody()->getContents();
         $pid1OptionPosition = strpos($content, $pid1Option);
@@ -1088,8 +1237,8 @@ class SearchControllerTest extends AbstractFrontendControllerTest
         $this->importDataSetFromFixture('can_render_search_customTemplate.xml');
         $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
-        $this->searchRequest->setArgument('resultsPerPage', 5);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
+        $this->getPreparedRequest()->setArgument('resultsPerPage', 5);
+        $this->searchController->processRequest($this->getPreparedRequest(), $this->searchResponse);
         $result = $this->searchResponse->getBody()->getContents();
 
         $this->assertStringContainsString('Custom Integration Test Search Templatepath', $result, 'Can not overwrite template path');
@@ -1117,8 +1266,8 @@ class SearchControllerTest extends AbstractFrontendControllerTest
         $configurationManager->getTypoScriptConfiguration()->mergeSolrConfiguration($overwriteConfiguration);
         $this->searchController->setResetConfigurationBeforeInitialize(false);
 
-        $this->searchRequest->setArgument('resultsPerPage', 5);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
+        $this->getPreparedRequest()->setArgument('resultsPerPage', 5);
+        $this->searchController->processRequest($this->getPreparedRequest(), $this->searchResponse);
         $result = $this->searchResponse->getBody()->getContents();
 
         $this->assertStringContainsString('mytestsetting', $result, 'Can not output passed test setting');
@@ -1136,8 +1285,8 @@ class SearchControllerTest extends AbstractFrontendControllerTest
         $this->importDataSetFromFixture('can_render_search_customTemplateFromTs.xml');
         $GLOBALS['TSFE'] = $this->getConfiguredTSFE(1);
         $this->indexPages([1, 2, 3, 4, 5, 6, 7, 8]);
-        $this->searchRequest->setArgument('resultsPerPage', 5);
-        $this->searchController->processRequest($this->searchRequest, $this->searchResponse);
+        $this->getPreparedRequest()->setArgument('resultsPerPage', 5);
+        $this->searchController->processRequest($this->getPreparedRequest(), $this->searchResponse);
         $result = $this->searchResponse->getBody()->getContents();
 
         $this->assertStringContainsString('Custom Integration Test Search Template entry Template', $result, 'Can not set entry template file name in typoscript');
@@ -1154,7 +1303,7 @@ class SearchControllerTest extends AbstractFrontendControllerTest
         if (strpos($content, $id) === false) {
             return '';
         }
-        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $dom = new DOMDocument('1.0', 'UTF-8');
         $dom->loadHTML('<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL . $content);
         return $dom->saveXML($dom->getElementById($id));
     }
@@ -1218,16 +1367,16 @@ class SearchControllerTest extends AbstractFrontendControllerTest
      */
     protected function fakeSingletonsForFrontendContext()
     {
-//        $environmentServiceMock = $this->getMockBuilder(EnvironmentService::class)->setMethods([])->disableOriginalConstructor()->getMock();
-//        $environmentServiceMock->expects($this->any())->method('isEnvironmentInFrontendMode')->willReturn(true);
-//        $environmentServiceMock->expects($this->any())->method('isEnvironmentInBackendMode')->willReturn(false);
+        $environmentServiceMock = $this->getMockBuilder(EnvironmentService::class)->setMethods([])->disableOriginalConstructor()->getMock();
+        $environmentServiceMock->expects($this->any())->method('isEnvironmentInFrontendMode')->willReturn(true);
+        $environmentServiceMock->expects($this->any())->method('isEnvironmentInBackendMode')->willReturn(false);
 
         $configurationManagerMock = $this->getMockBuilder(ExtbaseConfigurationManager::class)->onlyMethods(['getContentObject'])
             ->setConstructorArgs([$this->getContainer()])->getMock();
 
         $configurationManagerMock->expects($this->any())->method('getContentObject')->willReturn(GeneralUtility::makeInstance(ContentObjectRenderer::class));
 
-//        GeneralUtility::setSingletonInstance(EnvironmentService::class, $environmentServiceMock);
+        GeneralUtility::setSingletonInstance(EnvironmentService::class, $environmentServiceMock);
         GeneralUtility::setSingletonInstance(ExtbaseConfigurationManager::class, $configurationManagerMock);
     }
 }

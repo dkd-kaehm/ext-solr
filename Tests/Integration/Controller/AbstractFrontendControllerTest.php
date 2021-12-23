@@ -14,16 +14,25 @@ namespace ApacheSolrForTypo3\Solr\Tests\Integration\Controller;
  * The TYPO3 project - inspiring people to share!
  */
 
+use ApacheSolrForTypo3\Solr\FrontendEnvironment\Exception\Exception as SolrFrontendEnvironmentException;
+use ApacheSolrForTypo3\Solr\FrontendEnvironment\Tsfe;
 use ApacheSolrForTypo3\Solr\Tests\Integration\IntegrationTest;
 use ApacheSolrForTypo3\Solr\Typo3PageIndexer;
+use Doctrine\DBAL\DBALException;
+use Doctrine\DBAL\Driver\Exception as DBALDriverException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Cache\Exception\NoSuchCacheException;
+use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
+use TYPO3\CMS\Core\Exception\SiteNotFoundException;
 use TYPO3\CMS\Core\Http\Response;
 use TYPO3\CMS\Core\Http\ServerRequestFactory;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 //use TYPO3\CMS\Extbase\Mvc\Web\Response;
 use TYPO3\CMS\Frontend\Http\RequestHandler;
+use TYPO3\TestingFramework\Core\Exception as TestingFrameworkCoreException;
+use TYPO3\TestingFramework\Core\Functional\Framework\Frontend\InternalRequest;
+
 //use TYPO3\CMS\Frontend\Page\PageGenerator;
 
 abstract class AbstractFrontendControllerTest  extends IntegrationTest
@@ -32,12 +41,13 @@ abstract class AbstractFrontendControllerTest  extends IntegrationTest
     /**
      * @return void
      * @throws NoSuchCacheException
+     * @throws DBALException
+     * @throws TestingFrameworkCoreException
      */
     public function setUp(): void
     {
         $_SERVER['HTTP_HOST'] = 'testone.site';
         $_SERVER['REQUEST_URI'] = '/en/search/';
-
 
         parent::setUp();
         $this->writeDefaultSolrTestSiteConfiguration();
@@ -45,57 +55,40 @@ abstract class AbstractFrontendControllerTest  extends IntegrationTest
 
     /**
      * @param $importPageIds
+     * @throws SolrFrontendEnvironmentException
+     * @throws DBALDriverException
+     * @throws SiteNotFoundException
      */
     protected function indexPages($importPageIds)
     {
-        $existingAttributes = $GLOBALS['TYPO3_REQUEST'] ? $GLOBALS['TYPO3_REQUEST']->getAttributes() : [];
+        /* @var Tsfe $tsfeFactory */
+        $tsfeFactory = GeneralUtility::makeInstance(Tsfe::class);
         foreach ($importPageIds as $importPageId) {
-            $fakeTSFE = $this->getConfiguredTSFE($importPageId);
+            $fakeTSFE = $tsfeFactory->getTsfeByPageIdAndLanguageId($importPageId);
             $GLOBALS['TSFE'] = $fakeTSFE;
             $fakeTSFE->newCObj();
 
-            /* @var ServerRequestFactory $serverRequestFactory */
-            $serverRequestFactory = GeneralUtility::makeInstance(ServerRequestFactory::class);
-            $request = $serverRequestFactory::fromGlobals();
+            $request = (new InternalRequest('http://testone.site/'))
+                ->withPageId($importPageId);
 
-            /* @var RequestHandler $requestHandler */
-            $requestHandler = GeneralUtility::makeInstance(RequestHandler::class);
-            $requestHandler->handle($request);
+            $response = $this->executeFrontendSubRequest($request);
+            $fakeTSFE->content = (string)$response->getBody();
 
-            /** @var $pageIndexer \ApacheSolrForTypo3\Solr\Typo3PageIndexer */
+            /* @var $pageIndexer Typo3PageIndexer */
             $pageIndexer = GeneralUtility::makeInstance(Typo3PageIndexer::class, $fakeTSFE);
             $pageIndexer->indexPage();
         }
-
-        /** @var $beUser  \TYPO3\CMS\Core\Authentication\BackendUserAuthentication */
-        $beUser = GeneralUtility::makeInstance(BackendUserAuthentication::class);
-        $GLOBALS['BE_USER'] = $beUser;
-        if (!empty($existingAttributes)) {
-            foreach ($existingAttributes as $attributeName => $attribute) {
-                $GLOBALS['TYPO3_REQUEST'] = $GLOBALS['TYPO3_REQUEST']->withAttribute($attributeName, $attribute);
-            }
-        }
         $this->waitToBeVisibleInSolr();
+        unset($GLOBALS['TSFE']);
     }
 
     /**
-     * @param string $controllerName
-     * @param string $actionName
-     * @param string $plugin
-     * @return ExtbaseRequest
+     * @param int $pageId
+     * @return InternalRequest
      */
-    protected function getPreparedRequest($controllerName = 'Search', $actionName = 'results', $plugin = 'pi_result')
+    protected function getPreparedRequest(int $pageId = 1): InternalRequest
     {
-        /** @var ExtbaseRequest $request */
-        $request = $this->objectManager->get(ExtbaseRequest::class);
-        $request->setControllerName($controllerName);
-        $request->setControllerActionName($actionName);
-
-        $request->setPluginName($plugin);
-        $request->setFormat('html');
-        $request->setControllerExtensionName('Solr');
-
-        return $request;
+        return (new InternalRequest('http://testone.site/'))->withPageId($pageId);
     }
 
 

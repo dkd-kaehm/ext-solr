@@ -494,8 +494,6 @@ abstract class IntegrationTest extends FunctionalTestCase
         $this->writeDefaultSolrTestSiteConfigurationForHostAndPort($solrConnectionInfo['scheme'], $solrConnectionInfo['host'], $solrConnectionInfo['port']);
     }
 
-
-
     /**
      * @var string
      */
