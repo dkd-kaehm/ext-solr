@@ -15,4 +15,6 @@
 
 namespace ApacheSolrForTypo3\Solr\Domain\Search\ResultSet\Facets;
 
-class InvalidUrlDecoderException extends \Exception {}
+class InvalidUrlDecoderException extends \Exception
+{
+}
