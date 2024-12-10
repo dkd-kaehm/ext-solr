@@ -42,10 +42,7 @@
     "dg/bypass-finals": "^1.6",
     "phpunit/phpunit": "^11.4",
     "typo3/cms-fluid-styled-content": "*",
-    "typo3/coding-standards": "v0.8.0",
-    "typo3/testing-framework": "^9.0.1",
-    "phpstan/phpstan": "^1.11",
-    "phpstan/phpstan-phpunit": "^1.3"
+    "typo3/testing-framework": "^9.0.1"
   },
   "replace": {
     "apache-solr-for-typo3/solrfluid": "*",
@@ -155,10 +152,12 @@
         ],
         "configset": "ext_solr_13_0_0"
       },
-      "ext-solrfal": {
-      },
       "stack-for-ci": {
-        "sclable/xml-lint": "*"
+        "sclable/xml-lint": "*",
+        "ssch/typo3-rector": "^2.12",
+        "typo3/coding-standards": "v0.8.0",
+        "phpstan/phpstan": "^1.11",
+        "phpstan/phpstan-phpunit": "^1.3"
       }
     }
   }
