@@ -19,12 +19,33 @@ use ApacheSolrForTypo3\Solr\System\Util\SiteUtility;
 use ApacheSolrForTypo3\Solr\Tests\Unit\SetUpUnitTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\Exception as MockObjectException;
 use Traversable;
 use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Site\Entity\SiteLanguage;
 
 /**
  * Testcase for the SiteUtilityTest helper class.
+ *
+ * @phpstan-type siteConfigurationValueHandlingProviderEntry array{
+ *   fakeConfiguration: array{
+ *     solr_enabled_read: bool
+ *   },
+ *   property: string,
+ *   scope: string,
+ *   expectedConfigurationValue: bool
+ * }
+ *
+ * @phpstan-type expectedSiteMockConfiguration array{
+ *   solr_host_read: string,
+ *   solr_use_write_connection: bool,
+ *   solr_host_write?: string
+ * }
+ *
+ * @phpstan-type writeConnectionTestsProviderEntry array{
+ *   expectedSolrHost: string,
+ *   expectedSiteMockConfiguration: expectedSiteMockConfiguration
+ * }
  */
 class SiteUtilityTest extends SetUpUnitTestCase
 {
@@ -34,6 +55,9 @@ class SiteUtilityTest extends SetUpUnitTestCase
         parent::tearDown();
     }
 
+    /**
+     * @throws MockObjectException
+     */
     #[Test]
     public function canFallbackToLanguageSpecificReadProperty(): void
     {
@@ -48,6 +72,9 @@ class SiteUtilityTest extends SetUpUnitTestCase
         self::assertSame('readcore', $property, 'Can not fallback to read property when write property is undefined');
     }
 
+    /**
+     * @throws MockObjectException
+     */
     #[Test]
     public function canFallbackToGlobalPropertyWhenLanguageSpecificPropertyIsNotSet(): void
     {
@@ -64,6 +91,9 @@ class SiteUtilityTest extends SetUpUnitTestCase
         self::assertSame('readhost', $property, 'Can not fallback to read property when write property is undefined');
     }
 
+    /**
+     * @return Traversable<string, writeConnectionTestsProviderEntry>
+     */
     public static function writeConnectionTestsDataProvider(): Traversable
     {
         yield 'enabling solr_use_write_connection, resolves to specified write host' => [
@@ -93,11 +123,18 @@ class SiteUtilityTest extends SetUpUnitTestCase
 
     /**
      * solr_use_write_connection is functional
+     *
+     * @param string $expectedSolrHost The expected solr host string
+     * @param expectedSiteMockConfiguration $expectedSiteMockConfiguration
+     *
+     * @throws MockObjectException
      */
     #[DataProvider('writeConnectionTestsDataProvider')]
     #[Test]
-    public function solr_use_write_connectionSiteSettingInfluencesTheWriteConnection(string $expectedSolrHost, array $expectedSiteMockConfiguration): void
-    {
+    public function solr_use_write_connectionSiteSettingInfluencesTheWriteConnection(
+        string $expectedSolrHost,
+        array $expectedSiteMockConfiguration
+    ): void {
         $siteMock = $this->createMock(Site::class);
         $siteMock->expects(self::any())->method('getConfiguration')->willReturn($expectedSiteMockConfiguration);
         $property = SiteUtility::getConnectionProperty($siteMock, 'host', 0, 'write');
@@ -110,6 +147,9 @@ class SiteUtilityTest extends SetUpUnitTestCase
         );
     }
 
+    /**
+     * @throws MockObjectException
+     */
     #[Test]
     public function canLanguageSpecificConfigurationOverwriteGlobalConfiguration(): void
     {
@@ -126,6 +166,9 @@ class SiteUtilityTest extends SetUpUnitTestCase
         self::assertSame('readhost.local.de', $property, 'Can not fallback to read property when write property is undefined');
     }
 
+    /**
+     * @throws MockObjectException
+     */
     #[Test]
     public function specifiedDefaultValueIsReturnedByGetConnectionPropertyIfPropertyIsNotDefinedInConfiguration(): void
     {
@@ -140,7 +183,7 @@ class SiteUtilityTest extends SetUpUnitTestCase
     /**
      * Data provider for testing boolean value handling
      *
-     * @return array
+     * @return array<siteConfigurationValueHandlingProviderEntry>
      */
     public static function siteConfigurationValueHandlingDataProvider(): array
     {
@@ -253,10 +296,13 @@ class SiteUtilityTest extends SetUpUnitTestCase
     /**
      * Tests if boolean values in site configuration can be handled
      *
-     * @param array $fakeConfiguration
+     * @param array{
+     *     solr_enabled_read: bool
+     * } $fakeConfiguration
      * @param string $property
      * @param string $scope
      * @param mixed $expectedConfigurationValue
+     * @throws MockObjectException
      */
     #[DataProvider('siteConfigurationValueHandlingDataProvider')]
     #[Test]
@@ -264,7 +310,7 @@ class SiteUtilityTest extends SetUpUnitTestCase
         array $fakeConfiguration,
         string $property,
         string $scope,
-        $expectedConfigurationValue,
+        mixed $expectedConfigurationValue,
     ): void {
         $siteMock = $this->createMock(Site::class);
         $siteMock->expects(self::any())->method('getConfiguration')->willReturn($fakeConfiguration);

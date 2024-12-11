@@ -19,17 +19,23 @@ use ApacheSolrForTypo3\Solr\System\Configuration\TypoScriptConfiguration;
 use ApacheSolrForTypo3\Solr\Typo3PageContentExtractor;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\Exception as MockObjectException;
 use PHPUnit\Framework\MockObject\MockObject;
 use Traversable;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Tests the TYPO3 page content extractor
+ *
+ * @phpstan-type canGetIndexableContentProviderEntry array{ content: string, expectedResult: string }
  */
 class Typo3PageContentExtractorTest extends SetUpUnitTestCase
 {
     protected TypoScriptConfiguration|MockObject $typoScripConfigurationMock;
 
+    /**
+     * @throws MockObjectException
+     */
     protected function setUp(): void
     {
         $this->typoScripConfigurationMock = $this->createMock(TypoScriptConfiguration::class);
@@ -45,6 +51,7 @@ class Typo3PageContentExtractorTest extends SetUpUnitTestCase
         $content = '<!-- TYPO3SEARCH_begin -->In Olten&nbsp;ist<!-- TYPO3SEARCH_end -->';
         $expectedResult = 'In Olten ist';
 
+        /** @var Typo3PageContentExtractor $contentExtractor */
         $contentExtractor = GeneralUtility::makeInstance(Typo3PageContentExtractor::class, $content);
         $contentExtractor->setConfiguration($this->typoScripConfigurationMock);
         $actualResult = $contentExtractor->getIndexableContent();
@@ -57,6 +64,7 @@ class Typo3PageContentExtractorTest extends SetUpUnitTestCase
         $content = '<!-- TYPO3SEARCH_begin --><div class="typo3-search-exclude">Exclude content</div><p>Expected content</p><!-- TYPO3SEARCH_end -->';
         $expectedResult = '<!-- TYPO3SEARCH_begin --><p>Expected content</p><!-- TYPO3SEARCH_end -->';
 
+        /** @var Typo3PageContentExtractor $contentExtractor */
         $contentExtractor = GeneralUtility::makeInstance(Typo3PageContentExtractor::class, $content);
         $contentExtractor->setConfiguration($this->typoScripConfigurationMock);
 
@@ -69,6 +77,7 @@ class Typo3PageContentExtractorTest extends SetUpUnitTestCase
     {
         $content = '<!-- TYPO3SEARCH_begin --><div class="typo3-search-exclude">Remove me</div><p>Was ein schöner Tag</p><!-- TYPO3SEARCH_end -->';
 
+        /** @var Typo3PageContentExtractor $contentExtractor */
         $contentExtractor = GeneralUtility::makeInstance(Typo3PageContentExtractor::class, $content);
         $contentExtractor->setConfiguration($this->typoScripConfigurationMock);
 
@@ -83,6 +92,7 @@ class Typo3PageContentExtractorTest extends SetUpUnitTestCase
     {
         $content = '<!-- TYPO3SEARCH_begin --><div class="typo3-search-exclude">Remove me</div><p>100€</p><!-- TYPO3SEARCH_end -->';
 
+        /** @var Typo3PageContentExtractor $contentExtractor */
         $contentExtractor = GeneralUtility::makeInstance(Typo3PageContentExtractor::class, $content);
         $contentExtractor->setConfiguration($this->typoScripConfigurationMock);
 
@@ -92,6 +102,9 @@ class Typo3PageContentExtractorTest extends SetUpUnitTestCase
         self::assertStringNotContainsString('Remove me', $actualResult);
     }
 
+    /**
+     * @return Traversable<string, canGetIndexableContentProviderEntry>
+     */
     public static function canGetIndexableContentDataProvider(): Traversable
     {
         yield 'can extract simple text' => [
@@ -130,10 +143,13 @@ class Typo3PageContentExtractorTest extends SetUpUnitTestCase
 
     #[DataProvider('canGetIndexableContentDataProvider')]
     #[Test]
-    public function canGetIndexableContent($content, $expectedResult): void
-    {
+    public function canGetIndexableContent(
+        string $content,
+        string $expectedResult
+    ): void {
         $content = '<!-- TYPO3SEARCH_begin -->' . $content . '<!-- TYPO3SEARCH_end -->';
 
+        /** @var Typo3PageContentExtractor $contentExtractor */
         $contentExtractor = GeneralUtility::makeInstance(Typo3PageContentExtractor::class, $content);
         $contentExtractor->setConfiguration($this->typoScripConfigurationMock);
 

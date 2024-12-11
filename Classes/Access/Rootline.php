@@ -15,6 +15,7 @@
 
 namespace ApacheSolrForTypo3\Solr\Access;
 
+use Doctrine\DBAL\Exception as DBALException;
 use RuntimeException;
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -63,6 +64,7 @@ class Rootline
 
     /**
      * Storage for access rootline elements
+     * @var RootlineElement[]
      */
     protected array $rootlineElements = [];
 
@@ -90,6 +92,8 @@ class Rootline
      * Adds an Access Rootline Element to the end of the rootline.
      *
      * @param RootlineElement $rootlineElement Element to add.
+     *
+     * @throws RootlineElementFormatException
      */
     public function push(RootlineElement $rootlineElement): void
     {
@@ -120,6 +124,9 @@ class Rootline
      * @param int $pageId The page id to generate the Access Rootline for.
      * @param string $mountPointParameter The mount point parameter for generating the rootline.
      * @return Rootline Access Rootline for the given page id.
+     *
+     * @throws DBALException
+     * @throws RootlineElementFormatException
      */
     public static function getAccessRootlineByPageId(
         int $pageId,
@@ -181,7 +188,7 @@ class Rootline
     /**
      * Gets the groups in the Access Rootline.
      *
-     * @return array An array of sorted, unique user group IDs required to access a page.
+     * @return int[] An array of sorted, unique user group IDs required to access a page.
      */
     public function getGroups(): array
     {
@@ -199,8 +206,8 @@ class Rootline
      * Cleans an array of frontend user group IDs. Removes the duplicates and sorts
      * the array.
      *
-     * @param array $groups An array of frontend user group IDs
-     * @return array An array of cleaned frontend user group IDs, unique, sorted.
+     * @param int[] $groups An array of frontend user group IDs
+     * @return int[] An array of cleaned frontend user group IDs, unique, sorted.
      */
     public static function cleanGroupArray(array $groups): array
     {

@@ -75,7 +75,7 @@ class SearchFormViewHelperTest extends SetUpUnitTestCase
     /**
      * @param int $pageUid
      */
-    protected function assertUriIsBuildForPageUid(int $pageUid)
+    protected function assertUriIsBuildForPageUid(int $pageUid): void
     {
         $this->uriBuilderMock->expects(self::any())->method('reset')->willReturn($this->uriBuilderMock);
         $this->uriBuilderMock->expects(self::once())->method('setTargetPageUid')->with($pageUid)->willReturn($this->uriBuilderMock);

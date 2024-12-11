@@ -2,7 +2,7 @@ includes:
   - %rootDir%/../phpstan-phpunit/extension.neon
 
 parameters:
-  level: 5
+  level: 6
   treatPhpDocTypesAsCertain: false
 
   bootstrapFiles:

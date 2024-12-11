@@ -1,5 +1,7 @@
 <?php
 
+/** @noinspection PhpInternalEntityUsedInspection */
+
 declare(strict_types=1);
 
 /*
@@ -22,6 +24,8 @@ use ApacheSolrForTypo3\Solr\System\Service\ConfigurationService;
 use ApacheSolrForTypo3\Solr\Tests\Unit\SetUpUnitTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\Exception as MockObjectException;
+use ReflectionException;
 use Traversable;
 use TYPO3\CMS\Core\Service\FlexFormService;
 use TYPO3\CMS\Core\TypoScript\TypoScriptService;
@@ -29,6 +33,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class ConfigurationServiceTest extends SetUpUnitTestCase
 {
+    /**
+     * @return Traversable<array<string|int>>
+     */
     public static function escapeFilterDataProvider(): Traversable
     {
         yield ['id', 10, '10'];
@@ -63,10 +70,16 @@ class ConfigurationServiceTest extends SetUpUnitTestCase
         yield ['title', '\(1\+1\)\:2', '\(1\+1\)\:2'];
     }
 
+    /**
+     * @throws ReflectionException
+     */
     #[DataProvider('escapeFilterDataProvider')]
     #[Test]
-    public function isFlexFormFilterEscaped(string $filterField, $filterValue, string $expectedFilterString): void
-    {
+    public function isFlexFormFilterEscaped(
+        string $filterField,
+        string|int $filterValue,
+        string $expectedFilterString,
+    ): void {
         $fakeFlexFormArrayData = [
             'search' => [
                 'query' => [
@@ -91,6 +104,9 @@ class ConfigurationServiceTest extends SetUpUnitTestCase
         self::assertEquals([$filterField . ':' . $expectedFilterString], $filters);
     }
 
+    /**
+     * @return Traversable<array<string|int>>
+     */
     public static function overrideFilterDataProvider(): Traversable
     {
         yield ['id', 4711, 'id:4711'];
@@ -98,11 +114,14 @@ class ConfigurationServiceTest extends SetUpUnitTestCase
         yield ['title', 'test', 'title:test'];
     }
 
+    /**
+     * @throws MockObjectException
+     */
     #[DataProvider('overrideFilterDataProvider')]
     #[Test]
     public function canOverrideConfigurationWithFlexFormSettings(
         string $filterField,
-        $filterValue,
+        string|int $filterValue,
         string $expectedFilterString,
     ): void {
         $fakeFlexFormArrayData = [
@@ -121,17 +140,18 @@ class ConfigurationServiceTest extends SetUpUnitTestCase
         ];
 
         $flexFormServiceMock = $this->createMock(FlexFormService::class);
-        $flexFormServiceMock->expects(self::once())->method('convertflexFormContentToArray')->willReturn($fakeFlexFormArrayData);
+        $flexFormServiceMock->expects(self::once())->method('convertFlexFormContentToArray')->willReturn($fakeFlexFormArrayData);
 
         $typoScriptConfiguration = new TypoScriptConfiguration(['plugin.' => ['tx_solr.' => []]]);
 
         $configurationService = new ConfigurationService();
         $configurationService->setFlexFormService($flexFormServiceMock);
+        /** @noinspection PhpInternalEntityUsedInspection */
         $configurationService->setTypoScriptService(GeneralUtility::makeInstance(TypoScriptService::class));
 
         self::assertEquals([], $typoScriptConfiguration->getSearchQueryFilterConfiguration());
 
-        // the passed flexform data is empty because the convertflexFormContentToArray retrieves tha faked converted data
+        // the passed flexform data is empty because the convertFlexFormContentToArray retrieves tha faked converted data
         $configurationService->overrideConfigurationWithFlexFormSettings('test', $typoScriptConfiguration);
 
         // the filter should be overwritten by the flexform

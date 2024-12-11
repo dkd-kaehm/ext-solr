@@ -23,9 +23,18 @@ use Traversable;
 
 /**
  * Testcase to check the functionallity of the UrlHelper
+ *
+ * @phpstan-type withoutQueryParameterProviderEntry array{
+ *   input: string,
+ *   queryParameterToRemove: string,
+ *   expectedUrl: string,
+ * }
  */
 class UrlHelperTest extends SetUpUnitTestCase
 {
+    /**
+     * @return Traversable<string, withoutQueryParameterProviderEntry>
+     */
     public static function withoutQueryParameter(): Traversable
     {
         yield 'cHash at the end' => [
@@ -54,15 +63,22 @@ class UrlHelperTest extends SetUpUnitTestCase
             'expectedUrl' => '/index.php?foo%5B1%5D=bar&cHash=ddd&id=1',
         ];
     }
+
     #[DataProvider('withoutQueryParameter')]
     #[Test]
-    public function testCanRemoveQueryParameter($input, $queryParameterToRemove, $expectedUrl): void
-    {
+    public function testCanRemoveQueryParameter(
+        string $input,
+        string $queryParameterToRemove,
+        string $expectedUrl,
+    ): void {
         $urlHelper = new UrlHelper($input);
         $urlHelper = $urlHelper->withoutQueryParameter($queryParameterToRemove);
         self::assertSame($expectedUrl, (string)$urlHelper, 'Can not remove query parameter as expected');
     }
 
+    /**
+     * @return Traversable<string, array{inputUrl: string, expectedOutputUrl: string}>
+     */
     public static function getUrl(): Traversable
     {
         yield 'nothing should be changed' => [
@@ -78,8 +94,8 @@ class UrlHelperTest extends SetUpUnitTestCase
             'expectedOutputUrl' => 'https://www.google.de/index.php',
         ];
         yield 'url with port' => [
-            'inputUrl' => 'http://www.google.de:8080/index.php',
-            'expectedOutputUrl' => 'http://www.google.de:8080/index.php',
+            'inputUrl' => 'https://www.google.de:8080/index.php',
+            'expectedOutputUrl' => 'https://www.google.de:8080/index.php',
         ];
     }
 
@@ -89,20 +105,25 @@ class UrlHelperTest extends SetUpUnitTestCase
      */
     #[DataProvider('getUrl')]
     #[Test]
-    public function testGetUrl($inputUrl, $expectedOutputUrl): void
-    {
+    public function testGetUrl(
+        string $inputUrl,
+        string $expectedOutputUrl
+    ): void {
         $urlHelper = new UrlHelper($inputUrl);
         self::assertSame($expectedOutputUrl, (string)$urlHelper, 'Can not get expected output url');
     }
 
+    /**
+     * @return Traversable<string, string[]>
+     */
     public static function unmodifiedUrl(): Traversable
     {
-        yield 'noQuery' => ['http://www.site.de/en/test'];
-        yield 'withQuery' => ['http://www.site.de/en/test?id=1'];
-        yield 'withQueries' => ['http://www.site.de/en/test?id=1&L=2'];
+        yield 'noQuery' => ['https://www.site.de/en/test'];
+        yield 'withQuery' => ['https://www.site.de/en/test?id=1'];
+        yield 'withQueries' => ['https://www.site.de/en/test?id=1&L=2'];
     }
     #[DataProvider('unmodifiedUrl')]
-    public function testGetUnmodifiedUrl($uri): void
+    public function testGetUnmodifiedUrl(string $uri): void
     {
         $urlHelper = new UrlHelper($uri);
         self::assertSame($uri, (string)$urlHelper, 'Could not get unmodified url');

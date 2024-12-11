@@ -128,10 +128,21 @@ class SolrConnectionTest extends SetUpUnitTestCase
         $connection->getAdminService();
     }
 
+    /**
+     * @return Traversable<array{path: string, core: string, expectedCoreName: string}>
+     */
     public static function coreNameDataProvider(): Traversable
     {
-        yield ['path' => '/solr/', 'core' => 'bla', 'expectedCoreName' => 'bla'];
-        yield ['path' => '/somewherelese/solr/', 'core' => 'corename', 'expectedCoreName' => 'corename'];
+        yield [
+            'path' => '/solr/',
+            'core' => 'bla',
+            'expectedCoreName' => 'bla',
+        ];
+        yield [
+            'path' => '/somewherelese/solr/',
+            'core' => 'corename',
+            'expectedCoreName' => 'corename',
+        ];
     }
 
     /**
@@ -150,10 +161,21 @@ class SolrConnectionTest extends SetUpUnitTestCase
         self::assertSame($expectedCoreName, $solrService->getReadService()->getPrimaryEndpoint()->getCore());
     }
 
+    /**
+     * @return Traversable<array{path: string, core: string, expectedCoreBasePath: string}>
+     */
     public static function coreBasePathDataProvider(): Traversable
     {
-        yield ['path' => '/', 'core' => 'bla', 'expectedCoreBasePath' => ''];
-        yield ['path' => '/somewherelese/', 'core' => 'corename', 'expectedCoreBasePath' => '/somewherelese'];
+        yield [
+            'path' => '/',
+            'core' => 'bla',
+            'expectedCoreBasePath' => '',
+        ];
+        yield [
+            'path' => '/somewherelese/',
+            'core' => 'corename',
+            'expectedCoreBasePath' => '/somewherelese',
+        ];
     }
 
     #[DataProvider('coreBasePathDataProvider')]

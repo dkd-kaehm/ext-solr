@@ -26,36 +26,55 @@ use ApacheSolrForTypo3\Solr\Tests\Unit\SetUpUnitTestCase;
 use ApacheSolrForTypo3\Solr\ViewHelpers\Document\HighlightResultViewHelper;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\Exception as MockObjectException;
 use PHPUnit\Framework\MockObject\MockObject;
 use stdClass;
 use Traversable;
 use TYPO3Fluid\Fluid\Core\Rendering\RenderingContextInterface;
 
+/**
+ * @phpstan-type createHighlightSnippedProviderEntry array{
+ *     input: string[],
+ *     expectedOutput: string,
+ *     configuredWrap: string,
+ * }
+ */
 class HighlightingResultViewHelperTest extends SetUpUnitTestCase
 {
+    /**
+     * @return Traversable<createHighlightSnippedProviderEntry>
+     */
     public static function canRenderCreateHighlightSnippedDataProvider(): Traversable
     {
         yield [
-            ['hello <em>world</em>', 'hi <em>world</em>'],
-            'hello <em>world</em> ### hi <em>world</em>',
-            '<em>|</em>',
+            'input' => ['hello <em>world</em>', 'hi <em>world</em>'],
+            'expectedOutput' => 'hello <em>world</em> ### hi <em>world</em>',
+            'configuredWrap' => '<em>|</em>',
         ];
         yield [
-            ['hello <em>world</em>', 'hi <em>world</em> <h1>somethingelse</h1>'],
-            'hello <em>world</em> ### hi <em>world</em> &lt;h1&gt;somethingelse&lt;/h1&gt;',
-            '<em>|</em>',
+            'input' => ['hello <em>world</em>', 'hi <em>world</em> <h1>somethingelse</h1>'],
+            'expectedOutput' => 'hello <em>world</em> ### hi <em>world</em> &lt;h1&gt;somethingelse&lt;/h1&gt;',
+            'configuredWrap' => '<em>|</em>',
         ];
         yield [
-            ['hello <em>world</em>', 'hi <em>world</em> <h1>somethingelse</h1>'],
-            'hello &lt;em&gt;world&lt;/em&gt; ### hi &lt;em&gt;world&lt;/em&gt; &lt;h1&gt;somethingelse&lt;/h1&gt;',
-            ' ',
+            'input' => ['hello <em>world</em>', 'hi <em>world</em> <h1>somethingelse</h1>'],
+            'expectedOutput' => 'hello &lt;em&gt;world&lt;/em&gt; ### hi &lt;em&gt;world&lt;/em&gt; &lt;h1&gt;somethingelse&lt;/h1&gt;',
+            'configuredWrap' => ' ',
         ];
     }
 
+    /**
+     * @param string[] $input
+     *
+     * @throws MockObjectException
+     */
     #[DataProvider('canRenderCreateHighlightSnippedDataProvider')]
     #[Test]
-    public function canRenderCreateHighlightSnipped(array $input, $expectedOutput, $configuredWrap): void
-    {
+    public function canRenderCreateHighlightSnipped(
+        array $input,
+        string $expectedOutput,
+        string $configuredWrap,
+    ): void {
         /** @var RenderingContextInterface|MockObject $renderingContextMock */
         $renderingContextMock = $this->createMock(RenderingContextInterface::class);
 

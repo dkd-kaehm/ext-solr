@@ -57,6 +57,7 @@ class RootlineElement
 
     /**
      * Set of access groups assigned to the element.
+     * @var int[]
      */
     protected array $accessGroups = [];
 
@@ -150,7 +151,7 @@ class RootlineElement
     /**
      * Gets the element's access group restrictions.
      *
-     * @return array Array of user group Ids
+     * @return int[] Array of user group Ids
      */
     public function getGroups(): array
     {

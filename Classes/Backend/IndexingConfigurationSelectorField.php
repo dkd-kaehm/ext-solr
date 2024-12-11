@@ -25,6 +25,12 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Index Queue indexing configuration selector form field.
+ *
+ * @phpstan-type selectorItem array{
+ *     icon: string,
+ *     label: string,
+ *     value: string,
+ * }
  */
 class IndexingConfigurationSelectorField
 {
@@ -40,6 +46,7 @@ class IndexingConfigurationSelectorField
 
     /**
      * Selected values
+     * @var string[]
      */
     protected array $selectedValues = [];
 
@@ -76,6 +83,8 @@ class IndexingConfigurationSelectorField
 
     /**
      * Sets the selected values.
+     *
+     * @param string[] $selectedValues
      */
     public function setSelectedValues(array $selectedValues): void
     {
@@ -84,6 +93,8 @@ class IndexingConfigurationSelectorField
 
     /**
      * Gets the selected values.
+     *
+     * @return string[]
      *
      * @noinspection PhpUnused
      */
@@ -118,7 +129,7 @@ class IndexingConfigurationSelectorField
     /**
      * Builds a map of indexing configuration names to tables to index.
      *
-     * @return array Indexing configuration to database table map
+     * @return string[] Indexing configuration to database table map
      */
     protected function getIndexQueueConfigurationTableMap(): array
     {
@@ -136,9 +147,9 @@ class IndexingConfigurationSelectorField
     /**
      * Builds the items to render in the TCEforms select field.
      *
-     * @param array $tablesToIndex A map of indexing configuration to database tables
+     * @param string[] $tablesToIndex A map of indexing configuration to database tables
      *
-     * @return array Selectable items for the TCEforms select field
+     * @return selectorItem[] Selectable items for the TCEforms select field
      */
     protected function buildSelectorItems(array $tablesToIndex): array
     {
@@ -150,6 +161,7 @@ class IndexingConfigurationSelectorField
 
         foreach ($tablesToIndex as $configurationName => $tableName) {
             if (isset($GLOBALS['TCA'][$tableName])) {
+                /** @noinspection PhpInternalEntityUsedInspection */
                 $icon = $iconFactory->mapRecordTypeToIconIdentifier($tableName, []);
                 if ($icon === $iconRegistry->getDefaultIconIdentifier() || !$iconRegistry->isRegistered($icon)) {
                     $icon = $defaultIcon;
@@ -175,6 +187,9 @@ class IndexingConfigurationSelectorField
 
     /**
      * @throws BackendFormException
+     *
+     * @param selectorItem[] $items
+     * @param string[] $selectedValues
      */
     protected function renderSelectCheckbox(array $items, ?array $selectedValues = []): string
     {

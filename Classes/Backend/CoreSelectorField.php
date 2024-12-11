@@ -17,6 +17,7 @@ namespace ApacheSolrForTypo3\Solr\Backend;
 
 use ApacheSolrForTypo3\Solr\ConnectionManager;
 use ApacheSolrForTypo3\Solr\Domain\Site\Site;
+use ApacheSolrForTypo3\Solr\Exception\InvalidConnectionException;
 use TYPO3\CMS\Backend\Form\Exception as BackendFormException;
 use TYPO3\CMS\Backend\Form\FormResultCompiler;
 use TYPO3\CMS\Backend\Form\NodeFactory;
@@ -24,6 +25,12 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Core selector form field.
+ *
+ * @phpstan-type selectorItem array{
+ *     icon: string,
+ *     label: string,
+ *     value: string,
+ * }
  */
 class CoreSelectorField
 {
@@ -39,6 +46,7 @@ class CoreSelectorField
 
     /**
      * Selected values
+     * @var string[]
      */
     protected array $selectedValues = [];
 
@@ -74,6 +82,8 @@ class CoreSelectorField
 
     /**
      * Sets the selected values.
+     *
+     * @param string[] $selectedValues
      */
     public function setSelectedValues(array $selectedValues): void
     {
@@ -82,6 +92,8 @@ class CoreSelectorField
 
     /**
      * Gets the selected values.
+     *
+     * @return string[]
      */
     public function getSelectedValues(): array
     {
@@ -92,7 +104,9 @@ class CoreSelectorField
      * Renders a field to select which cores to optimize.
      *
      * @return string Markup for the select field
+     *
      * @throws BackendFormException
+     * @throws InvalidConnectionException
      */
     public function render(): string
     {
@@ -114,7 +128,9 @@ class CoreSelectorField
     /**
      * Builds a map of language uids to corepaths to optimize.
      *
-     * @return array language uids to core paths map
+     * @return string[] language uids to core paths map
+     *
+     * @throws InvalidConnectionException
      */
     protected function getLanguageUidCoreMap(): array
     {
@@ -129,9 +145,9 @@ class CoreSelectorField
     /**
      * Builds the items to render in the TCEforms select field.
      *
-     * @param array $coresToOptimize A map of indexing configuration to database tables
+     * @param string[] $coresToOptimize A map of indexing configuration to database tables
      *
-     * @return array Selectable items for the TCEforms select field
+     * @return selectorItem[] Selectable items for the TCEforms select field
      */
     protected function buildSelectorItems(array $coresToOptimize): array
     {
@@ -150,6 +166,9 @@ class CoreSelectorField
     }
 
     /**
+     * @param selectorItem[] $items
+     * @param string[] $selectedValues The core names
+     *
      * @throws BackendFormException
      */
     protected function renderSelectCheckbox(array $items, array $selectedValues): string

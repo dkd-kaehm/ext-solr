@@ -21,12 +21,17 @@ use ApacheSolrForTypo3\Solr\Domain\Search\ResultSet\Facets\OptionBased\Options\O
 use ApacheSolrForTypo3\Solr\Tests\Unit\SetUpUnitTestCase;
 use ApacheSolrForTypo3\Solr\ViewHelpers\Facet\Options\Group\Prefix\LabelPrefixesViewHelper;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\Exception as MockObjectException;
+use PHPUnit\Framework\MockObject\MockObject;
 use TYPO3Fluid\Fluid\Core\Parser\SyntaxTree\ViewHelperNode;
 use TYPO3Fluid\Fluid\Core\Rendering\RenderingContextInterface;
 use TYPO3Fluid\Fluid\Core\Variables\StandardVariableProvider;
 
 class LabelPrefixesViewHelperTest extends SetUpUnitTestCase
 {
+    /**
+     * @throws MockObjectException
+     */
     #[Test]
     public function canGetPrefixesSortedByOrderInCollection(): void
     {
@@ -47,6 +52,9 @@ class LabelPrefixesViewHelperTest extends SetUpUnitTestCase
         self::assertSame(['r', 'p', 'l'], $prefixes, 'ViewHelper registers unexpected prefixes from passed options');
     }
 
+    /**
+     * @throws MockObjectException
+     */
     #[Test]
     public function canGetPrefixesSortedAlphabeticalByLabel(): void
     {
@@ -67,6 +75,9 @@ class LabelPrefixesViewHelperTest extends SetUpUnitTestCase
         self::assertSame(['l', 'p', 'r'], $prefixes, 'ViewHelper registers unexpected prefixes from passed options');
     }
 
+    /**
+     * @throws MockObjectException
+     */
     protected function getTestFacetOptionCollection(): OptionCollection
     {
         $facet = $this->createMock(OptionsFacet::class);
@@ -86,6 +97,16 @@ class LabelPrefixesViewHelperTest extends SetUpUnitTestCase
         return $optionCollection;
     }
 
+    /**
+     * @param array<string, mixed> $testArguments
+     * @return array{
+     *     testable: LabelPrefixesViewHelper,
+     *     variableContainer: StandardVariableProvider|MockObject,
+     *     renderingContextMock: RenderingContextInterface|MockObject,
+     * }
+     *
+     * @throws MockObjectException
+     */
     protected function getTestableStack(
         array &$testArguments,
     ): array {
@@ -98,6 +119,7 @@ class LabelPrefixesViewHelperTest extends SetUpUnitTestCase
         $labelPrefixesViewHelperTestable = new LabelPrefixesViewHelper();
         $labelPrefixesViewHelperTestable->setRenderingContext($renderingContextMock);
         $labelPrefixesViewHelperTestable->setArguments($testArguments);
+        /** @noinspection PhpInternalEntityUsedInspection */
         $labelPrefixesViewHelperTestable->setViewHelperNode($this->createMock(ViewHelperNode::class));
 
         return [

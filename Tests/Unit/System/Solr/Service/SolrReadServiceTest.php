@@ -25,6 +25,7 @@ use ApacheSolrForTypo3\Solr\System\Solr\SolrUnavailableException;
 use ApacheSolrForTypo3\Solr\Tests\Unit\SetUpUnitTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\Exception as MockObjectException;
 use PHPUnit\Framework\MockObject\MockObject;
 use Solarium\Client;
 use Solarium\Core\Client\Request;
@@ -43,6 +44,9 @@ class SolrReadServiceTest extends SetUpUnitTestCase
     protected Client|MockObject $clientMock;
     protected SolrReadService $service;
 
+    /**
+     * @throws MockObjectException
+     */
     protected function setUp(): void
     {
         $this->responseMock = $this->createMock(Response::class);
@@ -55,6 +59,9 @@ class SolrReadServiceTest extends SetUpUnitTestCase
         parent::setUp();
     }
 
+    /**
+     * @throws MockObjectException
+     */
     #[Test]
     public function pingIsOnlyDoingOnePingCallWhenCacheIsEnabled(): void
     {
@@ -65,6 +72,9 @@ class SolrReadServiceTest extends SetUpUnitTestCase
         $this->service->ping();
     }
 
+    /**
+     * @throws MockObjectException
+     */
     #[Test]
     public function pingIsOnlyDoingManyPingCallsWhenCacheIsDisabled(): void
     {
@@ -75,6 +85,9 @@ class SolrReadServiceTest extends SetUpUnitTestCase
         $this->service->ping(false);
     }
 
+    /**
+     * @throws MockObjectException
+     */
     #[Test]
     public function searchMethodIsTriggeringGetRequest(): void
     {
@@ -89,13 +102,28 @@ class SolrReadServiceTest extends SetUpUnitTestCase
         self::assertTrue($this->service->hasSearched(), 'hasSearch indicates that no search was triggered');
     }
 
+    /**
+     * @return Traversable<string, array{exceptionClass: string, statusCode: int}>
+     */
     public static function readServiceExceptionDataProvider(): Traversable
     {
-        yield 'Communication error' => ['exceptionClass' => SolrUnavailableException::class, 'statusCode' => 0];
-        yield 'Internal Server error' => ['exceptionClass' => SolrInternalServerErrorException::class, 'statusCode' => 500];
-        yield 'Other unspecific error' => ['exceptionClass' => SolrCommunicationException::class, 'statusCode' => 555];
+        yield 'Communication error' => [
+            'exceptionClass' => SolrUnavailableException::class,
+            'statusCode' => 0,
+        ];
+        yield 'Internal Server error' => [
+            'exceptionClass' => SolrInternalServerErrorException::class,
+            'statusCode' => 500,
+        ];
+        yield 'Other unspecific error' => [
+            'exceptionClass' => SolrCommunicationException::class,
+            'statusCode' => 555,
+        ];
     }
 
+    /**
+     * @throws MockObjectException
+     */
     #[DataProvider('readServiceExceptionDataProvider')]
     #[Test]
     public function searchThrowsExpectedExceptionForStatusCode(
@@ -117,13 +145,13 @@ class SolrReadServiceTest extends SetUpUnitTestCase
 
     /**
      * @return SolrReadService
+     * @throws MockObjectException
      */
-    protected function getDefaultSolrServiceWithMockedDependencies()
+    protected function getDefaultSolrServiceWithMockedDependencies(): SolrReadService
     {
         $clientMock = $this->createMock(Client::class);
         $fakeConfiguration = $this->createMock(TypoScriptConfiguration::class);
         $logManagerMock = $this->createMock(SolrLogManager::class);
-        $solrService = new SolrReadService($clientMock, $fakeConfiguration, $logManagerMock);
-        return $solrService;
+        return new SolrReadService($clientMock, $fakeConfiguration, $logManagerMock);
     }
 }
