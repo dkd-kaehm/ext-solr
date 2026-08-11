@@ -37,6 +37,7 @@ use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Context\LanguageAspectFactory;
 use TYPO3\CMS\Core\Core\Environment;
+use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Exception\SiteNotFoundException;
 use TYPO3\CMS\Core\Http\NormalizedParams;
 use TYPO3\CMS\Core\Http\ServerRequest;
@@ -327,9 +328,19 @@ readonly class IndexingService
             $previousLanguageAspect = $this->context->getAspect('language');
             $this->context->unsetAspect('language');
             chdir(Environment::getPublicPath());
+            // Proactively point $GLOBALS['TYPO3_REQUEST'] at the sub-request before dispatching it.
+            // TYPO3 only reassigns this global in the frontend's terminal RequestHandler, which runs
+            // at the very end of the middleware stack. Everything before that point in the chain -
+            // including PrepareTypoScriptFrontendRendering's TypoScript condition matching - would
+            // otherwise still see the outer (backend) request here, leaking its "id" and other query
+            // parameters into condition evaluation for the page actually being indexed.
+            $GLOBALS['TYPO3_REQUEST'] = $request;
             try {
                 $response = $this->frontendApplication->handle($request);
-            } finally {
+            } catch (\Throwable $t) {
+                throw $t;
+            }
+            finally {
                 chdir($previousWorkingDirectory);
                 if ($hadBackendUser) {
                     $GLOBALS['BE_USER'] = $previousBackendUser;
@@ -376,7 +387,8 @@ readonly class IndexingService
                     'exception' => $e->__toString(),
                 ],
             );
-            return null;
+            throw $e;
+            //return null;
         }
     }
 
@@ -428,7 +440,8 @@ readonly class IndexingService
             ->withUri($uri)
             ->withAttribute('site', $site)
             ->withAttribute('language', $siteLanguage)
-            ->withAttribute('normalizedParams', NormalizedParams::createFromServerParams($serverParams));
+            ->withAttribute('normalizedParams', NormalizedParams::createFromServerParams($serverParams))
+            ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_FE);
     }
 
     /**

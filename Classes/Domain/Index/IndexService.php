@@ -129,9 +129,10 @@ class IndexService
                     $afterIndexItemEvent = new AfterItemHasBeenIndexedEvent($itemToIndex, $this->getContextTask(), $indexRunId);
                     $this->eventDispatcher->dispatch($afterIndexItemEvent);
                 } catch (Throwable $e) {
-                    $errors++;
-                    $this->indexQueue->markItemAsFailed($itemToIndex, $e->getCode() . ': ' . $e->__toString());
-                    $this->generateIndexingErrorLog($itemToIndex, $e);
+//                    $errors++;
+//                    $this->indexQueue->markItemAsFailed($itemToIndex, $e->getCode() . ': ' . $e->__toString());
+//                    $this->generateIndexingErrorLog($itemToIndex, $e);
+                    throw $e;
                 }
             }
         }
